@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <data>
+
+        <variable
+            name="viewModel"
+            type="com.zaze.launcher.LauncherViewModel" />
+
+    </data>
+
+    <com.zaze.launcher.view.LauncherRootView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true">
+
+        <com.zaze.launcher.view.drag.DragLayer
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <include
+                android:id="@+id/launcher_hot_seat"
+                layout="@layout/layout_hot_seat"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/white"
+                android:onLongClick="@{viewModel.onHotSeatLongClick}" />
+
+        </com.zaze.launcher.view.drag.DragLayer>
+
+        <ViewStub
+            android:id="@+id/launcher_overlay_stub"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:inflatedId="@+id/launcher_overlay"
+            android:layout="@layout/layout_launcher_overlay"
+            android:visibility="gone" />
+    </com.zaze.launcher.view.LauncherRootView>
+</layout>
+

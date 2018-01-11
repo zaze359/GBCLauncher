@@ -8,11 +8,16 @@ import android.content.Intent;
 import android.databinding.BaseObservable;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import com.zaze.launcher.util.LauncherSharePref;
 import com.zaze.launcher.util.LogTag;
+import com.zaze.launcher.view.HotSeat;
+import com.zaze.launcher.view.drag.DragController;
 import com.zaze.utils.log.ZLog;
 
 import java.io.FileDescriptor;
@@ -27,12 +32,13 @@ import java.io.PrintWriter;
 public class LauncherViewModel extends BaseObservable implements LauncherCallbacks {
 
     private static final String FIRST_RUN_ACTIVITY_DISPLAYED = "launcher.first_run_activity_displayed";
-
     /**
      * To avoid leaks, this must be an Application Context.
      */
     private Context mContext;
     private LauncherCallbacks mLauncherCallbacks;
+    private FrameLayout.LayoutParams hotSeatLp;
+    private DragController mDragController;
 
     public void setLauncherCallbacks(LauncherCallbacks mLauncherCallbacks) {
         this.mLauncherCallbacks = mLauncherCallbacks;
@@ -42,8 +48,14 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
         this.mContext = context.getApplicationContext();
     }
 
-
     // --------------------------------------------------
+
+    /**
+     * 初始化一些数据
+     */
+    public void init() {
+        mDragController = new DragController(mContext);
+    }
 
     /**
      * 标记第一次运行界面的状态为已显示
@@ -64,6 +76,23 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
     public void showFirstRunClings() {
     }
 
+    public boolean onHotSeatLongClick(View hotSeat) {
+        if (hotSeat instanceof HotSeat) {
+            if (onLongCLickEnable()) {
+                final boolean isAllAppsButton = true;
+                return true;
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private boolean onLongCLickEnable() {
+        return true;
+    }
+
+    // --------------------------------------------------
     // --------------------------------------------------
     // --------------------------------------------------
 
@@ -389,4 +418,5 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
     public void setLauncherSearchCallback(Object callbacks) {
         ZLog.i(LogTag.TAG_LIFECYCLE, "setLauncherSearchCallback");
     }
+
 }

@@ -19,6 +19,7 @@ import android.view.WindowManager;
 import com.zaze.launcher.databinding.ActivityLauncherBinding;
 import com.zaze.launcher.util.LogTag;
 import com.zaze.launcher.util.Utilities;
+import com.zaze.launcher.view.HotSeat;
 import com.zaze.utils.log.ZLog;
 
 /**
@@ -28,6 +29,7 @@ public class LauncherActivity extends AppCompatActivity {
 
     private LauncherViewModel mViewModel;
     private LauncherCallbacks mLauncherCallbacks;
+    private HotSeat mHotSeat;
 
     public void setLauncherCallbacks(LauncherCallbacks launcherCallbacks) {
         this.mLauncherCallbacks = launcherCallbacks;
@@ -86,6 +88,7 @@ public class LauncherActivity extends AppCompatActivity {
         ActivityLauncherBinding binding = DataBindingUtil.setContentView(this, R.layout.activity_launcher);
         binding.setViewModel(mViewModel);
         // --------------------------------------------------
+        mViewModel.init();
         setupPermission();
         setupViews();
         restoreState(savedInstanceState);
@@ -93,7 +96,6 @@ public class LauncherActivity extends AppCompatActivity {
         if (mLauncherCallbacks != null) {
             mLauncherCallbacks.onCreate(savedInstanceState);
             if (mLauncherCallbacks.hasLauncherOverlay()) {
-                // TODO: 2017/12/19
                 ViewStub stub = findViewById(R.id.launcher_overlay_stub);
                 View view = stub.inflate();
             }
@@ -134,7 +136,15 @@ public class LauncherActivity extends AppCompatActivity {
      * 初始化界面
      */
     private void setupViews() {
+        mHotSeat = findViewById(R.id.launcher_hot_seat);
+        mHotSeat.layout();
 
+//        mHotSeat.setOnLongClickListener(new View.OnLongClickListener() {
+//            @Override
+//            public boolean onLongClick(View v) {
+//                return mViewModel.onHotSeatLongClick(v);
+//            }
+//        });
     }
 
     /**
@@ -149,6 +159,7 @@ public class LauncherActivity extends AppCompatActivity {
      * 设置屏幕方向
      */
     private void setOrientation() {
+        // 忽略物理感应器——即显示方向与物理感应器无关
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
     }
 

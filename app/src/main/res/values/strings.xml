@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">GBCLauncher</string>
+    <string name="all_apps_button_label">Apps</string>
 </resources>
