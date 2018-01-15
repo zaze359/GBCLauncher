@@ -8,8 +8,13 @@
     <bool name="allow_rotation">false</bool>
 
 
-
     <!-- HotSeat -->
     <bool name="hot_seat_transpose_layout_with_orientation">true</bool>
+
+
+    <!-- This constant stores the ratio of the all apps button drawable which
+     is used for internal (baked-in) padding -->
+    <integer name="config_allAppsButtonPaddingPercent">17</integer>
+    <integer name="config_workspaceDefaultScreen">0</integer>
 
 </resources>

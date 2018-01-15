@@ -23,7 +23,6 @@
                 layout="@layout/layout_hot_seat"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@color/white"
                 android:onLongClick="@{viewModel.onHotSeatLongClick}" />
 
         </com.zaze.launcher.view.drag.DragLayer>

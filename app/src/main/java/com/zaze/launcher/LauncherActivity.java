@@ -197,6 +197,7 @@ public class LauncherActivity extends AppCompatActivity {
         mViewModel.preOnResume();
         super.onResume();
         mViewModel.onResume();
+        mHotSeat.resetLayout();
     }
 
     private void setWorkspaceBackground(int background) {

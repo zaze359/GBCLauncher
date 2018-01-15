@@ -16,6 +16,16 @@
 
 package com.zaze.launcher;
 
+import android.annotation.TargetApi;
+import android.content.Context;
+import android.graphics.Point;
+import android.os.Build;
+import android.util.DisplayMetrics;
+import android.view.Display;
+import android.view.WindowManager;
+
+import com.zaze.launcher.util.Utilities;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -24,8 +34,33 @@ import java.util.Comparator;
  * 一些不变的配置
  */
 public class InvariantDeviceProfile {
+
+    /**
+     * 包含状态栏 不包含状态栏
+     * 比如(768, 744)
+     */
+    private static Point smallestSize = null;
+    /**
+     * 包含状态栏 不包含状态栏
+     * 比如(1024, 1000)
+     */
+    private static Point largestSize = null;
+    /**
+     * (768, 1024)
+     */
+    private static Point realSize = null;
     private static float DEFAULT_ICON_SIZE_DP = 60;
     private static final float ICON_SIZE_DEFINED_IN_APP_DP = 48;
+
+    // --------------------------------------------------
+    // Constants that affects the interpolation curve between statically defined device profile
+    // buckets.
+    private static float KNEARESTNEIGHBOR = 3;
+    private static float WEIGHT_POWER = 5;
+
+    // used to offset float not being able to express extremely small weights in extreme cases.
+    private static float WEIGHT_EFFICIENT = 100000f;
+
     // --------------------------------------------------
 
     // Profile-defining invariant properties
@@ -34,6 +69,7 @@ public class InvariantDeviceProfile {
     float minHeightDps;
     /**
      * Number of icons per row and column in the workspace.
+     * 工作区中每行图标的个数
      */
     public int numRows;
     public int numColumns;
@@ -61,6 +97,9 @@ public class InvariantDeviceProfile {
 
     public int hotSeatAllAppsRank;
 
+
+    InvariantDeviceProfile() {
+    }
 
     /**
      * @param n     name
@@ -98,10 +137,34 @@ public class InvariantDeviceProfile {
         defaultLayoutId = dlId;
     }
 
-    public InvariantDeviceProfile() {
-        ArrayList<InvariantDeviceProfile> closestProfiles =
+    public InvariantDeviceProfile(InvariantDeviceProfile p) {
+        this(p.name, p.minWidthDps, p.minHeightDps, p.numRows, p.numColumns,
+                p.numFolderRows, p.numFolderColumns, p.minAllAppsPredictionColumns,
+                p.iconSize, p.iconTextSize, p.numHotSeatIcons, p.hotSeatIconSize,
+                p.defaultLayoutId);
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+    public InvariantDeviceProfile(Context context) {
+        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        Display display = wm.getDefaultDisplay();
+        DisplayMetrics dm = new DisplayMetrics();
+        display.getMetrics(dm);
+        if (smallestSize == null || largestSize == null || realSize == null) {
+            smallestSize = new Point();
+            largestSize = new Point();
+            realSize = new Point();
+            display.getCurrentSizeRange(smallestSize, largestSize);
+            display.getRealSize(realSize);
+        }
+        // This guarantees that width < height
+        // 保证宽度小于高度
+        minWidthDps = Utilities.dpiFromPx(Math.min(smallestSize.x, smallestSize.y), dm);
+        minHeightDps = Utilities.dpiFromPx(Math.min(largestSize.x, largestSize.y), dm);
+        // 最接近的配置
+        ArrayList<InvariantDeviceProfile> closestProfileList =
                 findClosestDeviceProfiles(minWidthDps, minHeightDps, getPredefinedDeviceProfiles());
-        InvariantDeviceProfile closestProfile = closestProfiles.get(0);
+        InvariantDeviceProfile closestProfile = closestProfileList.get(0);
         numRows = closestProfile.numRows;
         numColumns = closestProfile.numColumns;
         numHotSeatIcons = closestProfile.numHotSeatIcons;
@@ -110,9 +173,24 @@ public class InvariantDeviceProfile {
         numFolderColumns = closestProfile.numFolderColumns;
         minAllAppsPredictionColumns = closestProfile.minAllAppsPredictionColumns;
         hotSeatAllAppsRank = numHotSeatIcons / 2;
+        // --------------------------------------------------
+        // TODO 抽空仔细看看
+        InvariantDeviceProfile interpolatedDeviceProfileOut =
+                invDistWeightedInterpolate(minWidthDps, minHeightDps, closestProfileList);
+        iconSize = interpolatedDeviceProfileOut.iconSize;
+        iconBitmapSize = Utilities.pxFromDp(iconSize, dm);
+        iconTextSize = interpolatedDeviceProfileOut.iconTextSize;
+        hotSeatIconSize = interpolatedDeviceProfileOut.hotSeatIconSize;
+        //
+        fillResIconDpi = getLauncherIconDensity(iconBitmapSize);
     }
 
-    ArrayList<InvariantDeviceProfile> getPredefinedDeviceProfiles() {
+    /**
+     * 将配置根据接近程度进行排序
+     *
+     * @return 最相近的配置
+     */
+    private ArrayList<InvariantDeviceProfile> getPredefinedDeviceProfiles() {
         ArrayList<InvariantDeviceProfile> predefinedDeviceProfiles = new ArrayList<>();
         // width, height, #rows, #columns, #folder rows, #folder columns,
         // iconSize, iconTextSize, #hotseat, #hotseatIconSize, defaultLayoutId.
@@ -141,6 +219,7 @@ public class InvariantDeviceProfile {
                 727, 1207, 5, 6, 4, 5, 4, 76, 14.4f, 7, 64, R.xml.default_workspace_5x6));
         predefinedDeviceProfiles.add(new InvariantDeviceProfile("20-inch Tablet",
                 1527, 2527, 7, 7, 6, 6, 4, 100, 20, 7, 72, R.xml.default_workspace_4x4));
+
         return predefinedDeviceProfiles;
     }
 
@@ -164,17 +243,111 @@ public class InvariantDeviceProfile {
         return pointsByNearness;
     }
 
+
     /**
-     * (x0, y0) 和 (x1, y1) 两点的长度
+     * ？？？
+     *
+     * @param width
+     * @param height
+     * @param points
+     * @return
+     */
+    InvariantDeviceProfile invDistWeightedInterpolate(float width, float height, ArrayList<InvariantDeviceProfile> points) {
+        float weights = 0;
+        InvariantDeviceProfile p = points.get(0);
+        if (dist(width, height, p.minWidthDps, p.minHeightDps) == 0) {
+            return p;
+        }
+        InvariantDeviceProfile out = new InvariantDeviceProfile();
+        for (int i = 0; i < points.size() && i < KNEARESTNEIGHBOR; ++i) {
+            p = new InvariantDeviceProfile(points.get(i));
+            float w = weight(width, height, p.minWidthDps, p.minHeightDps, WEIGHT_POWER);
+            weights += w;
+            out.add(p.multiply(w));
+        }
+        return out.multiply(1.0f / weights);
+    }
+
+    /**
+     * (x0, y0) 和 (x1, y1) 两点间的距离
      * 即一个长为 x1 - x0， 宽为 y1 - y0直角三角形的 斜边长
      *
      * @param x0
      * @param y0
      * @param x1
      * @param y1
-     * @return
+     * @return 两点间的距离
      */
     float dist(float x0, float y0, float x1, float y1) {
         return (float) Math.hypot(x1 - x0, y1 - y0);
+    }
+
+    /**
+     * 计算权重
+     *
+     * @param x0
+     * @param y0
+     * @param x1
+     * @param y1
+     * @param pow
+     * @return
+     */
+    private float weight(float x0, float y0, float x1, float y1, float pow) {
+        float d = dist(x0, y0, x1, y1);
+        if (Float.compare(d, 0f) == 0) {
+            // 表示重合, 权重无限大
+            return Float.POSITIVE_INFINITY;
+        }
+        return (float) (WEIGHT_EFFICIENT / Math.pow(d, pow));
+    }
+
+    private void add(InvariantDeviceProfile p) {
+        iconSize += p.iconSize;
+        iconTextSize += p.iconTextSize;
+        hotSeatIconSize += p.hotSeatIconSize;
+    }
+
+    private InvariantDeviceProfile multiply(float w) {
+        iconSize *= w;
+        iconTextSize *= w;
+        hotSeatIconSize *= w;
+        return this;
+    }
+
+    private int getLauncherIconDensity(int requiredSize) {
+        // Densities typically defined by an app.
+        int[] densityBuckets = new int[]{
+                DisplayMetrics.DENSITY_LOW,
+                DisplayMetrics.DENSITY_MEDIUM,
+                DisplayMetrics.DENSITY_TV,
+                DisplayMetrics.DENSITY_HIGH,
+                DisplayMetrics.DENSITY_XHIGH,
+                DisplayMetrics.DENSITY_XXHIGH,
+                DisplayMetrics.DENSITY_XXXHIGH
+        };
+
+        int density = DisplayMetrics.DENSITY_XXXHIGH;
+        for (int i = densityBuckets.length - 1; i >= 0; i--) {
+            float expectedSize = ICON_SIZE_DEFINED_IN_APP_DP * densityBuckets[i]
+                    / DisplayMetrics.DENSITY_DEFAULT;
+            if (expectedSize >= requiredSize) {
+                density = densityBuckets[i];
+            }
+        }
+
+        return density;
+    }
+    // --------------------------------------------------
+
+    public Point getSmallestSize() {
+        return smallestSize;
+    }
+
+    public Point getLargestSize() {
+        return largestSize;
+    }
+
+    public Point getRealSize() {
+        return realSize;
     }
 }

@@ -2,11 +2,15 @@ package com.zaze.launcher.view;
 
 import android.app.WallpaperManager;
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.view.View;
 import android.view.ViewGroup;
 
 import com.zaze.launcher.DeviceProfile;
 import com.zaze.launcher.LauncherAppState;
+import com.zaze.launcher.util.Utilities;
 
 /**
  * Description : app快捷键 和 app组件 容器
@@ -17,7 +21,14 @@ import com.zaze.launcher.LauncherAppState;
 public class ShortcutAndWidgetContainer extends ViewGroup {
 
     private final WallpaperManager mWallpaperManager;
+    // These are temporary variables to prevent having to allocate a new object just to
+    // return an (x, y) value from helper functions. Do NOT use them to maintain other state.
 
+    /**
+     * 临时变量, 用于防止重复创建对象, 不要用于其他地方
+     * 用于返回当前位置(x, y)
+     */
+    private final int[] mTmpCellXY = new int[2];
     /**
      *
      */
@@ -42,6 +53,7 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
 
     // --------------------------------------------------
     private boolean isHotSeatLayout;
+    private boolean mInvertIfRtl = false;
 
     public ShortcutAndWidgetContainer(Context context) {
         super(context);
@@ -70,6 +82,19 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
 
 
     @Override
+    protected void dispatchDraw(Canvas canvas) {
+//     Debug drawing for hit space
+        Paint p = new Paint();
+        p.setColor(Color.RED);
+        for (int i = getChildCount() - 1; i >= 0; i--) {
+            final View child = getChildAt(i);
+            final CellLayout.LayoutParams lp = (CellLayout.LayoutParams) child.getLayoutParams();
+            canvas.drawRect(lp.x, lp.y, lp.x + lp.width, lp.y + lp.height, p);
+        }
+        super.dispatchDraw(canvas);
+    }
+
+    @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int widthSpecSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSpecSize = MeasureSpec.getSize(heightMeasureSpec);
@@ -85,7 +110,6 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
 
     public void measureChild(View child) {
         final DeviceProfile profile = LauncherAppState.getInstance(getContext()).getDeviceProfile();
-
         final int cellWidth = mCellWidth;
         final int cellHeight = mCellHeight;
         CellLayout.LayoutParams layoutParams = (CellLayout.LayoutParams) child.getLayoutParams();
@@ -95,9 +119,9 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
 //            lp.width = getMeasuredWidth();
 //            lp.height = getMeasuredHeight();
         } else {
-//            layoutParams.setup(cellWidth, cellHeight, mWidthGap, mHeightGap, invertLayoutHorizontally(), mCountX);
+            layoutParams.setup(cellWidth, cellHeight, mWidthGap, mHeightGap, invertLayoutHorizontally(), mCountX);
 //            if (child instanceof LauncherAppWidgetHostView) {
-            // Widgets have their own padding, so skip
+//                Widgets have their own padding, so skip
 //            } else {
             // Otherwise, center the icon
             int cellContentHeight = getCellContentHeight();
@@ -119,9 +143,42 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-
+        int count = getChildCount();
+        for (int i = 0; i < count; i++) {
+            final View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                CellLayout.LayoutParams lp = (CellLayout.LayoutParams) child.getLayoutParams();
+                int childLeft = lp.x;
+                int childTop = lp.y;
+                child.layout(childLeft, childTop, childLeft + lp.width, childTop + lp.height);
+                if (lp.dropped) {
+                    lp.dropped = false;
+                    final int[] cellXY = mTmpCellXY;
+                    getLocationOnScreen(cellXY);
+                    mWallpaperManager.sendWallpaperCommand(getWindowToken(),
+                            WallpaperManager.COMMAND_DROP,
+                            cellXY[0] + childLeft + lp.width / 2,
+                            cellXY[1] + childTop + lp.height / 2, 0, null);
+                }
+            }
+        }
     }
 
+    /**
+     * @return 是否从右到左布局 水平布局
+     */
+    public boolean invertLayoutHorizontally() {
+        return mInvertIfRtl && Utilities.isRtl(getResources());
+    }
+
+    /**
+     * 设置 从右到左布局 水平布局
+     *
+     * @param mInvertIfRtl mInvertIfRtl
+     */
+    public void setInvertIfRtl(boolean mInvertIfRtl) {
+        this.mInvertIfRtl = mInvertIfRtl;
+    }
 
     /**
      * 设置Cell的尺寸
@@ -149,16 +206,20 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
     // --------------------------------------------------
     @Override
     protected void setChildrenDrawingCacheEnabled(boolean enabled) {
-//        final int count = getChildCount();
-//        for (int i = 0; i < count; i++) {
-//            final View view = getChildAt(i);
-//            view.setDrawingCacheEnabled(enabled);
-//            // Update the drawing caches
-//            if (!view.isHardwareAccelerated() && enabled) {
-//                view.buildDrawingCache(true);
-//            }
-//        }
+        final int count = getChildCount();
+        for (int i = 0; i < count; i++) {
+            final View view = getChildAt(i);
+            view.setDrawingCacheEnabled(enabled);
+            // Update the drawing caches
+            if (!view.isHardwareAccelerated() && enabled) {
+                view.buildDrawingCache(true);
+            }
+        }
     }
 
+    @Override
+    protected void setChildrenDrawnWithCacheEnabled(boolean enabled) {
+        super.setChildrenDrawnWithCacheEnabled(enabled);
+    }
 
 }

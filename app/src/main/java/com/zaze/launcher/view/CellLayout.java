@@ -17,7 +17,10 @@
 package com.zaze.launcher.view;
 
 import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Canvas;
 import android.graphics.Rect;
+import android.graphics.drawable.TransitionDrawable;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewDebug;
@@ -25,6 +28,7 @@ import android.view.ViewGroup;
 
 import com.zaze.launcher.DeviceProfile;
 import com.zaze.launcher.LauncherAppState;
+import com.zaze.launcher.R;
 
 import java.util.Stack;
 
@@ -77,11 +81,11 @@ public class CellLayout extends ViewGroup {
     int mHeightGap;
 
     /**
-     * 原始间隙宽度, 默认 = 0
+     * 初始间隙宽度, 默认 = 0
      */
     private int mOriginalWidthGap;
     /**
-     * 原始间隙高度, 默认 = 0
+     * 初始间隙高度, 默认 = 0
      */
     private int mOriginalHeightGap;
 
@@ -104,9 +108,15 @@ public class CellLayout extends ViewGroup {
     private boolean isHotSeat;
     private float mHotSeatScale = 1f;
 
+    private boolean mDropPending = false;
+    private boolean mIsDragTarget = true;
+
+
+    private final TransitionDrawable mBackground;
+    private float mBackgroundAlpha;
+
+
     private final Stack<Rect> mTempRectStack = new Stack<>();
-
-
     private ShortcutAndWidgetContainer mShortcutsAndWidgets;
 
 
@@ -140,6 +150,11 @@ public class CellLayout extends ViewGroup {
         //
         setAlwaysDrawnWithCacheEnabled(false);
         mHotSeatScale = (float) grid.hotSeatIconSizePx / grid.iconSizePx;
+        final Resources res = getResources();
+        mBackground = (TransitionDrawable) res.getDrawable(R.drawable.bg_screen_panel);
+        mBackground.setCallback(this);
+//        mBackground.setAlpha((int) (mBackgroundAlpha * 255));
+
         mShortcutsAndWidgets = new ShortcutAndWidgetContainer(context);
         mShortcutsAndWidgets.setCellDimensions(mCellWidth, mCellHeight, mWidthGap, mHeightGap, mCountX, mCountY);
 //        mStylusEventHelper = new StylusEventHelper(this);
@@ -147,7 +162,6 @@ public class CellLayout extends ViewGroup {
 //        mTouchFeedbackView = new ClickShadowView(context);
 //        addView(mTouchFeedbackView);
         addView(mShortcutsAndWidgets);
-
     }
 
     @Override
@@ -223,8 +237,86 @@ public class CellLayout extends ViewGroup {
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        int offset = getMeasuredWidth() - getPaddingLeft() - getPaddingRight() -
+                (mCountX * mCellWidth);
+        int left = getPaddingLeft() + (int) Math.ceil(offset / 2f);
+        int top = getPaddingTop();
+//        mTouchFeedbackView.layout(left, top,
+//                left + mTouchFeedbackView.getMeasuredWidth(),
+//                top + mTouchFeedbackView.getMeasuredHeight());
+        mShortcutsAndWidgets.layout(left, top, r - l + left, b - t + top);
     }
 
+    @Override
+    protected void onDraw(Canvas canvas) {
+        if (!mIsDragTarget) {
+            return;
+        }
+        if (mBackgroundAlpha > 0.0f) {
+            mBackground.draw(canvas);
+        }
+        // ..........
+    }
+
+    @Override
+    public void removeAllViews() {
+        clearOccupiedCells();
+        mShortcutsAndWidgets.removeAllViews();
+
+    }
+
+    @Override
+    public void removeAllViewsInLayout() {
+        if (mShortcutsAndWidgets.getChildCount() > 0) {
+            clearOccupiedCells();
+            mShortcutsAndWidgets.removeAllViewsInLayout();
+        }
+    }
+
+
+    @Override
+    public void removeView(View view) {
+        markCellsAsUnoccupiedForView(view);
+        mShortcutsAndWidgets.removeView(view);
+    }
+
+    @Override
+    public void removeViewAt(int index) {
+        markCellsAsUnoccupiedForView(mShortcutsAndWidgets.getChildAt(index));
+        mShortcutsAndWidgets.removeViewAt(index);
+    }
+
+    @Override
+    public void removeViews(int start, int count) {
+        for (int i = start; i < start + count; i++) {
+            markCellsAsUnoccupiedForView(mShortcutsAndWidgets.getChildAt(i));
+        }
+        mShortcutsAndWidgets.removeViews(start, count);
+    }
+
+    @Override
+    public void removeViewsInLayout(int start, int count) {
+        for (int i = start; i < start + count; i++) {
+            markCellsAsUnoccupiedForView(mShortcutsAndWidgets.getChildAt(i));
+        }
+        mShortcutsAndWidgets.removeViewsInLayout(start, count);
+    }
+
+    private void clearOccupiedCells() {
+        for (int x = 0; x < mCountX; x++) {
+            for (int y = 0; y < mCountY; y++) {
+                mOccupied[x][y] = false;
+            }
+        }
+    }
+
+    // --------------------------------------------------
+
+    /**
+     * 是否是hotSeat
+     *
+     * @param isHotSeat isHotSeat
+     */
     public void setIsHotSeat(boolean isHotSeat) {
         this.isHotSeat = isHotSeat;
         mShortcutsAndWidgets.setIsHotSeatLayout(isHotSeat);
@@ -281,7 +373,7 @@ public class CellLayout extends ViewGroup {
     /**
      * 标记占用
      *
-     * @param view
+     * @param view view
      */
     public void markCellsAsOccupiedForView(View view) {
         if (view == null || view.getParent() != mShortcutsAndWidgets) {
@@ -289,6 +381,19 @@ public class CellLayout extends ViewGroup {
         }
         LayoutParams lp = (LayoutParams) view.getLayoutParams();
         markCellsForView(lp.cellX, lp.cellY, lp.cellHSpan, lp.cellVSpan, mOccupied, true);
+    }
+
+    /**
+     * 取消占用
+     *
+     * @param view view
+     */
+    public void markCellsAsUnoccupiedForView(View view) {
+        if (view == null || view.getParent() != mShortcutsAndWidgets) {
+            return;
+        }
+        LayoutParams lp = (LayoutParams) view.getLayoutParams();
+        markCellsForView(lp.cellX, lp.cellY, lp.cellHSpan, lp.cellVSpan, mOccupied, false);
     }
 
     /**
@@ -336,11 +441,6 @@ public class CellLayout extends ViewGroup {
     public static class LayoutParams extends ViewGroup.MarginLayoutParams {
 
         /**
-         * Indicates that this item should use the full extents of its parent.
-         */
-        public boolean isFullscreen = false;
-
-        /**
          * Horizontal location of the item in the grid.
          * 在网格中的X轴位置
          */
@@ -368,15 +468,30 @@ public class CellLayout extends ViewGroup {
 
         /**
          * Number of cells spanned horizontally by the item.
-         * 跨度，占多少个单位？
+         * 跨度，占多少个单位(跨越的区间数)
          */
         public int cellHSpan;
 
         /**
          * Number of cells spanned vertically by the item.
-         * 跨度，占多少个单位？
+         * 跨度，占多少个单位(跨越的区间数)
          */
         public int cellVSpan;
+
+        /**
+         * Indicates whether the item will set its x, y, width and height parameters freely,
+         * or whether these will be computed based on cellX, cellY, cellHSpan and cellVSpan.
+         * true 锁定(基于cellX, cellY, cellHSpan and cellVSpan 来计算)
+         * false 不锁定(可以自由的设定x, y, width and height 这些属性)
+         * 默认锁定不可自由设定
+         */
+        public boolean isLockedToGrid = true;
+
+        /**
+         * Indicates that this item should use the full extents of its parent.
+         * 全屏
+         */
+        public boolean isFullscreen = false;
 
         /**
          * Indicates whether this item can be reordered. Always true except in the case of the
@@ -384,6 +499,28 @@ public class CellLayout extends ViewGroup {
          * 是否需要重新排序， 除了AllApps button,其他的总是需要默认排序
          */
         public boolean canReorder = true;
+
+        /**
+         * Indicates that the temporary coordinates should be used to layout the items
+         * 使用临时坐标点布局
+         */
+        public boolean useTmpCoord;
+
+        /**
+         * 丢弃的？？
+         */
+        boolean dropped;
+
+        /**
+         * 布局中的x坐标
+         */
+        int x;
+
+        /**
+         * 布局中的y坐标
+         */
+        int y;
+
 
         public LayoutParams(Context c, AttributeSet attrs) {
             super(c, attrs);
@@ -413,6 +550,35 @@ public class CellLayout extends ViewGroup {
             this.cellVSpan = cellVSpan;
         }
 
+        /**
+         * 计算宽高和位置
+         *
+         * @param cellWidth          cellWidth
+         * @param cellHeight         cellHeight
+         * @param widthGap           widthGap
+         * @param heightGap          heightGap
+         * @param invertHorizontally invertHorizontally
+         * @param colCount           colCount
+         */
+        public void setup(int cellWidth, int cellHeight, int widthGap, int heightGap, boolean invertHorizontally, int colCount) {
+            if (isLockedToGrid) {
+                final int myCellHSpan = cellHSpan;
+                final int myCellVSpan = cellVSpan;
+                int myCellX = useTmpCoord ? tmpCellX : cellX;
+                int myCellY = useTmpCoord ? tmpCellY : cellY;
+                if (invertHorizontally) {
+                    // ....
+                    myCellX = colCount - myCellX - cellHSpan;
+                }
+                // 跨越的区间数 * cellWidth + 间隙数(区间数 -1 ) * widthGap - leftMargin - rightMargin
+                width = myCellHSpan * cellWidth + ((myCellHSpan - 1) * widthGap) -
+                        leftMargin - rightMargin;
+                height = myCellVSpan * cellHeight + ((myCellVSpan - 1) * heightGap) -
+                        topMargin - bottomMargin;
+                x = myCellX * (cellWidth + widthGap) + leftMargin;
+                y = myCellY * (cellHeight + heightGap) + topMargin;
+            }
+        }
     }
 
     public static final class CellInfo {

@@ -67,7 +67,7 @@ public class HotSeat extends FrameLayout {
         resetLayout();
     }
 
-    void resetLayout() {
+    public void resetLayout() {
         mContentLayout.removeAllViewsInLayout();
         // 默认添加 allAppsButton
         Context context = getContext();
