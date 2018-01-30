@@ -8,12 +8,12 @@ import android.content.Intent;
 import android.databinding.BaseObservable;
 import android.graphics.Rect;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.Menu;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import com.zaze.launcher.data.entity.Favorites;
+import com.zaze.launcher.data.source.FavoritesRepository;
 import com.zaze.launcher.util.LauncherSharePref;
 import com.zaze.launcher.util.LogTag;
 import com.zaze.launcher.view.HotSeat;
@@ -22,6 +22,11 @@ import com.zaze.utils.log.ZLog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+import io.reactivex.Observer;
+import io.reactivex.disposables.Disposable;
 
 /**
  * Description :
@@ -39,6 +44,10 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
     private LauncherCallbacks mLauncherCallbacks;
     private FrameLayout.LayoutParams hotSeatLp;
     private DragController mDragController;
+    private FavoritesRepository favoritesRepository;
+
+    private final List<Disposable> disposableList = new ArrayList<>();
+
 
     public void setLauncherCallbacks(LauncherCallbacks mLauncherCallbacks) {
         this.mLauncherCallbacks = mLauncherCallbacks;
@@ -55,6 +64,7 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
      */
     public void init() {
         mDragController = new DragController(mContext);
+        favoritesRepository = FavoritesRepository.getInstance(mContext);
     }
 
     /**
@@ -68,7 +78,6 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
         return !ActivityManager.isRunningInTestHarness() &&
                 !LauncherSharePref.get(FIRST_RUN_ACTIVITY_DISPLAYED, false);
     }
-
 
     /**
      * 主要是显示一些帮助信息
@@ -92,7 +101,52 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
         return true;
     }
 
-    // --------------------------------------------------
+    public void loadWorkSpace() {
+        favoritesRepository.loadDefaultFavoritesIfNecessary(new Observer<List<Favorites>>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                disposableList.add(d);
+            }
+
+            @Override
+            public void onNext(List<Favorites> list) {
+
+            }
+
+            @Override
+            public void onError(Throwable e) {
+
+            }
+
+            @Override
+            public void onComplete() {
+                favoritesRepository.loadFavorites(new Observer<List<Favorites>>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        ZLog.i(LogTag.TAG_DEBUG, "onSubscribe");
+                        disposableList.add(d);
+                    }
+
+                    @Override
+                    public void onNext(List<Favorites> favorites) {
+                        ZLog.i(LogTag.TAG_DEBUG, "onNext : " + favorites);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        ZLog.i(LogTag.TAG_DEBUG, "onError");
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        ZLog.i(LogTag.TAG_DEBUG, "onComplete");
+                    }
+                });
+            }
+        });
+    }
+
     // --------------------------------------------------
     // --------------------------------------------------
 
@@ -157,6 +211,14 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
     @Override
     public void onDestroy() {
         ZLog.i(LogTag.TAG_LIFECYCLE, "onDestroy");
+        synchronized (disposableList) {
+            for (Disposable disposable : disposableList) {
+                if (disposable != null && !disposable.isDisposed()) {
+                    disposable.dispose();
+                }
+            }
+            disposableList.clear();
+        }
         if (mLauncherCallbacks != null) {
             mLauncherCallbacks.onDestroy();
         }

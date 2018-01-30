@@ -90,12 +90,16 @@ public class InvariantDeviceProfile {
      */
     public int numHotSeatIcons;
     public float hotSeatIconSize;
+
+    /**
+     * hotSeat的位置(排行)
+     */
+    public int hotSeatAllAppsRank;
+
     int defaultLayoutId;
 
     int iconBitmapSize;
     int fillResIconDpi;
-
-    public int hotSeatAllAppsRank;
 
 
     InvariantDeviceProfile() {

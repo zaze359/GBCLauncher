@@ -1,5 +1,6 @@
 package com.zaze.launcher;
 
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -18,6 +19,7 @@ import android.view.WindowManager;
 
 import com.zaze.launcher.databinding.ActivityLauncherBinding;
 import com.zaze.launcher.util.LogTag;
+import com.zaze.launcher.util.PermissionCode;
 import com.zaze.launcher.util.Utilities;
 import com.zaze.launcher.view.HotSeat;
 import com.zaze.utils.log.ZLog;
@@ -102,6 +104,7 @@ public class LauncherActivity extends AppCompatActivity {
         }
         showFirstRunActivity();
         mViewModel.showFirstRunClings();
+        mViewModel.loadWorkSpace();
     }
 
 
@@ -109,7 +112,7 @@ public class LauncherActivity extends AppCompatActivity {
      * 申请权限
      */
     private void setupPermission() {
-//        Utilities.checkAndRequestUserPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE, PermissionCode.WRITE_EXTERNAL_STORAGE);
+        Utilities.checkAndRequestUserPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE, PermissionCode.WRITE_EXTERNAL_STORAGE);
 //        Utilities.checkAndRequestUserPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE, PermissionCode.READ_EXTERNAL_STORAGE);
 //        Utilities.checkAndRequestUserPermission(this, Manifest.permission.CALL_PHONE, PermissionCode.REQUEST_PERMISSION_CALL_PHONE);
     }
@@ -138,13 +141,6 @@ public class LauncherActivity extends AppCompatActivity {
     private void setupViews() {
         mHotSeat = findViewById(R.id.launcher_hot_seat);
         mHotSeat.layout();
-
-//        mHotSeat.setOnLongClickListener(new View.OnLongClickListener() {
-//            @Override
-//            public boolean onLongClick(View v) {
-//                return mViewModel.onHotSeatLongClick(v);
-//            }
-//        });
     }
 
     /**

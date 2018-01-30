@@ -3,7 +3,6 @@ package com.zaze.launcher.view;
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.view.View;
 import android.view.ViewGroup;
@@ -85,7 +84,7 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
     protected void dispatchDraw(Canvas canvas) {
 //     Debug drawing for hit space
         Paint p = new Paint();
-        p.setColor(Color.RED);
+        p.setColor(0x6600FF00);
         for (int i = getChildCount() - 1; i >= 0; i--) {
             final View child = getChildAt(i);
             final CellLayout.LayoutParams lp = (CellLayout.LayoutParams) child.getLayoutParams();

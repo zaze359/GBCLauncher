@@ -13,18 +13,19 @@ import com.zaze.utils.ZSharedPrefUtil;
 public class LauncherSharePref {
 
     public static void init() {
-        ZSharedPrefUtil.setSpName("gbc_launcher");
+//        ZSharedPrefUtil.setSpName("gbc_launcher");
     }
 
 
     public static <T> void apply(String key, @NonNull T value) {
+        ZSharedPrefUtil.apply(key, value);
     }
 
     public static <T> boolean commit(String key, @NonNull T value) {
-        return false;
+        return ZSharedPrefUtil.commit(key, value);
     }
 
     public static <T> T get(String key, @NonNull T defaultValue) {
-        return defaultValue;
+        return ZSharedPrefUtil.get(key, defaultValue);
     }
 }

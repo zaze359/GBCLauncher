@@ -1,4 +1,4 @@
-package com.zaze.launcher.entity;
+package com.zaze.launcher.data.entity;
 
 import android.databinding.BaseObservable;
 

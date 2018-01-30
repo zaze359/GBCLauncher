@@ -12,6 +12,11 @@ android {
         versionName rootProject.ext.versionName
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments = ["room.schemaLocation": "$projectDir/schemas".toString()]
+            }
+        }
     }
     buildTypes {
         release {
@@ -22,6 +27,10 @@ android {
     dataBinding {
         enabled = true
     }
+
+    configurations.all {
+        resolutionStrategy.force 'com.google.code.findbugs:jsr305:1.3.9'
+    }
 }
 
 dependencies {
@@ -30,9 +39,17 @@ dependencies {
     implementation 'com.android.support.constraint:constraint-layout:1.0.2'
     testImplementation "junit:junit:$rootProject.junitVersion"
     androidTestImplementation "com.android.support.test:runner:$rootProject.runnerVersion"
+    androidTestCompile "com.android.support.test:rules:$rootProject.ext.rulesVersion"
     androidTestImplementation "com.android.support.test.espresso:espresso-core:$rootProject.espressoVersion"
+    // Room 数据库
     compile "android.arch.persistence.room:runtime:$rootProject.roomVersion"
-    compile 'com.zaze:zazecommon:1.1.0@aar'
-    compile 'com.zaze:zazeutil:1.1.8'
+    annotationProcessor "android.arch.persistence.room:compiler:$rootProject.roomVersion"
+
+    compile 'com.zaze:zazecommon:1.1.1@aar'
+    compile 'com.zaze:zazeutil:1.1.12'
+    compile "com.google.guava:guava:$rootProject.guavaVersion"
+    compile 'io.reactivex.rxjava2:rxandroid:2.0.1'
+    compile 'io.reactivex.rxjava2:rxjava:2.1.7'
+
 
 }
