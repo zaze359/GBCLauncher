@@ -36,7 +36,8 @@ import java.util.Locale;
  * @author : ZAZE
  * @version : 2018-01-16 - 18:35
  */
-public class AutoInstallsLayout {
+public class AutoInstallsLayout extends FavoritesParser {
+
     private static final String FORMATTED_LAYOUT_RES_WITH_HOSTEAT = "default_layout_%dx%d_h%s";
     private static final String FORMATTED_LAYOUT_RES = "default_layout_%dx%d";
     private static final String LAYOUT_RES = "default_layout";
@@ -60,10 +61,13 @@ public class AutoInstallsLayout {
 
     private static final String RESTRICTION_PACKAGE_NAME = "workspace.configuration.package.name";
 
-    private FavoritesParser layoutParser;
+    /**
+     * Marker action used to discover a package which defines launcher customization
+     */
+    static final String ACTION_LAUNCHER_CUSTOMIZATION = "android.autoinstalls.config.action.PLAY_AUTO_INSTALL";
 
-    // --------------------------------------------------
     final Context mContext;
+
     final AppWidgetHost mAppWidgetHost;
     protected final LayoutParserCallback<Favorites> mCallback;
 
@@ -80,13 +84,12 @@ public class AutoInstallsLayout {
     public AutoInstallsLayout(Context context, AppWidgetHost appWidgetHost,
                               LayoutParserCallback callback, Resources res,
                               int layoutId, String rootTag, int hotSeatAllAppsRank) {
+        super(res, rootTag, hotSeatAllAppsRank);
         mContext = context;
         mAppWidgetHost = appWidgetHost;
         mCallback = callback;
-
         mPackageManager = context.getPackageManager();
         mLayoutId = layoutId;
-        layoutParser = new FavoritesParser(res, rootTag, hotSeatAllAppsRank);
     }
 
     public static AutoInstallsLayout newInstance(Context context, String packageName, AppWidgetHost appWidgetHost, LayoutParserCallback callback) {
@@ -102,22 +105,22 @@ public class AutoInstallsLayout {
             int layoutId = targetResources.getIdentifier(layoutName, "xml", packageName);
             if (layoutId == 0) {
                 // 尝试加载只有grid size 没有hotSeat的布局
-                ZLog.e(LogTag.TAG_LAYOUT, "Formatted layout: " + layoutName + " not found. Trying layout without hotSeat");
+                ZLog.w(LogTag.TAG_DOC, "Formatted layout: " + layoutName + " not found. Trying layout without hotSeat");
                 layoutName = String.format(Locale.ENGLISH, FORMATTED_LAYOUT_RES, grid.numColumns, grid.numRows);
                 layoutId = targetResources.getIdentifier(layoutName, "xml", packageName);
             }
             // 尝试加载默认布局
             if (layoutId == 0) {
-                ZLog.e(LogTag.TAG_LAYOUT, "Formatted layout: " + layoutName + " not found. Trying the default layout");
+                ZLog.w(LogTag.TAG_DOC, "Formatted layout: " + layoutName + " not found. Trying the default layout");
                 layoutId = targetResources.getIdentifier(LAYOUT_RES, "xml", packageName);
             }
             if (layoutId == 0) {
-                ZLog.e(LogTag.TAG_LAYOUT, "Layout definition not found in package: " + packageName);
+                ZLog.w(LogTag.TAG_DOC, "Layout definition not found in package: " + packageName);
                 return null;
             }
             return new AutoInstallsLayout(context, appWidgetHost, callback, targetResources, layoutId, TAG_WORKSPACE);
         } catch (PackageManager.NameNotFoundException e) {
-            ZLog.e(LogTag.TAG_LAYOUT, "Target package for restricted profile not found", e);
+            ZLog.e(LogTag.TAG_DOC, "Target package for restricted profile not found", e);
             return null;
         }
     }
@@ -137,6 +140,9 @@ public class AutoInstallsLayout {
         }
         Context context = LauncherApplication.getInstance();
         UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
+        if (um == null) {
+            return null;
+        }
         Bundle bundle = um.getApplicationRestrictions(context.getPackageName());
         if (bundle == null) {
             return null;
@@ -145,15 +151,39 @@ public class AutoInstallsLayout {
         return AutoInstallsLayout.newInstance(context, packageName, appWidgetHost, callback);
     }
 
+
+    public static AutoInstallsLayout get(AppWidgetHost appWidgetHost, LayoutParserCallback callback) {
+        Context context = LauncherApplication.getInstance();
+        String customizationApk = Utilities.findSystemApk(ACTION_LAUNCHER_CUSTOMIZATION, context.getPackageManager());
+        if (TextUtils.isEmpty(customizationApk)) {
+            return null;
+        }
+        return newInstance(context, customizationApk, appWidgetHost, callback);
+    }
+
+
+//    public static AutoInstallsLayout getDefaultLayoutParser(Context context) {
+//        int defaultLayout = LauncherAppState.getInstance(context).getInvariantDeviceProfile().defaultLayoutId;
+//        return new DefaultLayoutParser(getContext(), mOpenHelper.mAppWidgetHost,
+//                mOpenHelper, getContext().getResources(), defaultLayout);
+
+    // --------------------------------------------------
+
+    /**
+     * 加载布局
+     *
+     * @param screenIds screenIds
+     * @return screenIds
+     */
     public int loadLayout(ArrayList<Long> screenIds) {
         try {
-            return layoutParser.parseLayout(mLayoutId, screenIds, getLayoutElementsMap());
+            return parseLayout(mLayoutId, screenIds, getLayoutElementsMap());
         } catch (Exception e) {
             e.printStackTrace();
+            ZLog.e(LogTag.TAG_DOC, "" + e);
             return -1;
         }
     }
-
 
     protected HashMap<String, TagParser> getFolderElementsMap() {
         HashMap<String, TagParser> parsers = new HashMap<>();
@@ -167,7 +197,7 @@ public class AutoInstallsLayout {
         HashMap<String, TagParser<Favorites>> parsers = new HashMap<>();
         parsers.put(TAG_APP_ICON, new AppShortcutParser());
         parsers.put(TAG_AUTO_INSTALL, new AutoInstallParser());
-        parsers.put(TAG_FOLDER, new FolderParser());
+//        parsers.put(TAG_FOLDER, new FolderParser());
 //        parsers.put(TAG_SHORTCUT, new ShortcutParser(mSourceRes));
         parsers.put(TAG_APPWIDGET, new AppWidgetParser());
         return parsers;
@@ -195,6 +225,9 @@ public class AutoInstallsLayout {
         public long parseAndAdd(XmlResourceParser parser, Favorites values) throws XmlPullParserException, IOException {
             final String packageName = FavoritesParser.getAttributeValue(parser, ATTR_PACKAGE_NAME);
             final String className = FavoritesParser.getAttributeValue(parser, ATTR_CLASS_NAME);
+            ZLog.d(LogTag.TAG_DOC, packageName);
+            ZLog.d(LogTag.TAG_DOC, className);
+
             if (!TextUtils.isEmpty(packageName) && !TextUtils.isEmpty(className)) {
                 try {
                     ComponentName cn;
@@ -216,7 +249,7 @@ public class AutoInstallsLayout {
                     return addShortcut(activityInfo.loadLabel(mPackageManager).toString(),
                             intent, LauncherSettings.Favorites.ITEM_TYPE_APPLICATION, values);
                 } catch (PackageManager.NameNotFoundException e) {
-                    ZLog.e(LogTag.TAG_ERROR, "Unable to add favorite: " + packageName + "/" + className, e);
+                    ZLog.e(LogTag.TAG_DOC, "Unable to add favorite: " + packageName + "/" + className, e);
                     return -1;
                 }
             } else {
@@ -228,7 +261,7 @@ public class AutoInstallsLayout {
          * Helper method to allow extending the parser capabilities
          */
         protected long invalidPackageOrClass(XmlResourceParser parser) {
-            ZLog.w(LogTag.TAG_ERROR, "Skipping invalid <favorite> with no component");
+            ZLog.w(LogTag.TAG_DOC, "跳过无效的 <favorite> : no component");
             return -1;
         }
     }
@@ -272,4 +305,9 @@ public class AutoInstallsLayout {
             return 0;
         }
     }
+
+
+    // --------------------------------------------------
+
+
 }

@@ -12,8 +12,8 @@ import android.arch.persistence.room.PrimaryKey;
 @Entity(tableName = "favorites")
 public class Favorites {
 
-    @PrimaryKey
-    private int id;
+    @PrimaryKey(autoGenerate = true)
+    private long id;
 
     private String title;
 
@@ -53,11 +53,11 @@ public class Favorites {
      */
     private int cellY;
 
-    public int getId() {
+    public long getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(long id) {
         this.id = id;
     }
 

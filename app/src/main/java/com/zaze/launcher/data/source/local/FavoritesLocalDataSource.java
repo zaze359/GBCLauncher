@@ -1,13 +1,18 @@
 package com.zaze.launcher.data.source.local;
 
+import android.appwidget.AppWidgetHost;
 import android.support.annotation.NonNull;
+import android.util.Pair;
 
 import com.zaze.launcher.data.LauncherDatabase;
 import com.zaze.launcher.data.dao.FavoritesDao;
 import com.zaze.launcher.data.entity.Favorites;
 import com.zaze.launcher.data.source.iface.FavoritesDataSource;
+import com.zaze.launcher.util.LogTag;
 import com.zaze.launcher.util.parser.AutoInstallsLayout;
 import com.zaze.launcher.util.parser.LayoutParserCallback;
+import com.zaze.utils.ZJsonUtil;
+import com.zaze.utils.log.ZLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,10 +20,7 @@ import java.util.List;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.Observer;
-import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Function;
-import io.reactivex.schedulers.Schedulers;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -49,65 +51,80 @@ public class FavoritesLocalDataSource implements FavoritesDataSource {
     }
 
     @Override
-    public void saveFavorites(Observer<Boolean> observer, Favorites... favorites) {
-        Observable.just(favorites)
-                .subscribeOn(Schedulers.io())
-                .map(new Function<Favorites[], Boolean>() {
-                    @Override
-                    public Boolean apply(Favorites[] favorites) throws Exception {
-                        favoritesDao.insertFavorites(favorites);
-                        return true;
-                    }
-                })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(observer);
+    public void saveFavorites(Favorites favorites) {
+        ZLog.d(LogTag.TAG_DEBUG, "saveFavorites : " + ZJsonUtil.objToJson(favorites));
+        favoritesDao.insertFavorites(favorites);
     }
 
     @Override
-    public void loadDefaultFavoritesIfNecessary(Observer<List<Favorites>> observer) {
-
-        Observable.create(new ObservableOnSubscribe<Boolean>() {
+    public Observable<ArrayList<Long>> loadDefaultFavoritesIfNecessary() {
+        final LayoutParserCallback callback = new LayoutParserCallback<Favorites>() {
             @Override
-            public void subscribe(ObservableEmitter<Boolean> e) throws Exception {
-                e.onNext(LauncherDatabase.isEmptyDatabaseCreate());
+            public long insertAndCheck(Favorites values) {
+                saveFavorites(values);
+                return 1;
+            }
+        };
+        return Observable.create(new ObservableOnSubscribe<AppWidgetHost>() {
+            @Override
+            public void subscribe(ObservableEmitter<AppWidgetHost> e) throws Exception {
+                if (LauncherDatabase.isEmptyDatabaseCreate()) {
+                    e.onNext(LauncherDatabase.getAppWidgetHost());
+                }
                 e.onComplete();
             }
-        }).subscribeOn(Schedulers.io())
-                .map(new Function<Boolean, List<Favorites>>() {
+        })
+                .map(new Function<AppWidgetHost, Pair<AutoInstallsLayout, AppWidgetHost>>() {
                     @Override
-                    public List<Favorites> apply(Boolean aBoolean) throws Exception {
-                        if (aBoolean) {
-                            AutoInstallsLayout.createWorkspaceLoaderFromAppRestriction(LauncherDatabase.getAppWidgetHost(), new LayoutParserCallback<Favorites>() {
-                                @Override
-                                public long insertAndCheck(Favorites values) {
-                                    favoritesDao.insertFavorites(values);
-                                    return 1;
-                                }
-                            });
-                        }
-                        return new ArrayList<>();
+                    public Pair<AutoInstallsLayout, AppWidgetHost> apply(AppWidgetHost appWidgetHost) throws Exception {
+                        // From the app restrictions
+                        return new Pair<>(AutoInstallsLayout.createWorkspaceLoaderFromAppRestriction(appWidgetHost, callback), appWidgetHost);
                     }
                 })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(observer);
+                .map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, Pair<AutoInstallsLayout, AppWidgetHost>>() {
+                    @Override
+                    public Pair<AutoInstallsLayout, AppWidgetHost> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
+                        if (pair.first == null) {
+                            // From a package provided by play store
+                            return new Pair<>(AutoInstallsLayout.get(pair.second, callback), pair.second);
+                        }
+                        return pair;
+                    }
+                })
+//                .map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, Pair<AutoInstallsLayout, AppWidgetHost>>() {
+//                    @Override
+//                    public Pair<AutoInstallsLayout, AppWidgetHost> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
+//                        if (pair.first == null) {
+//                            // From a package provided by play store
+//                            Context context = BaseApplication.getInstance();
+//                            return new Pair<>(AutoInstallsLayout.newInstance(context, context.getPackageName(), pair.second, callback), pair.second);
+//                        }
+//                        return pair;
+//                    }
+//                })
+                .map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, ArrayList<Long>>() {
+                    @Override
+                    public ArrayList<Long> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
+                        ArrayList<Long> screenIds = new ArrayList<>();
+                        if (pair.first == null) {
+                            // From a partner configuration APK, already in the system image
+                        } else {
+                            pair.first.loadLayout(screenIds);
+                        }
+                        LauncherDatabase.clearFlagEmptyDbCreated();
+                        return screenIds;
+                    }
+                });
     }
 
     @Override
-    public void loadFavorites(Observer<List<Favorites>> observer) {
-        Observable.create(new ObservableOnSubscribe<List<Favorites>>() {
+    public Observable<List<Favorites>> loadFavorites() {
+        return Observable.create(new ObservableOnSubscribe<List<Favorites>>() {
             @Override
             public void subscribe(ObservableEmitter<List<Favorites>> e) throws Exception {
                 e.onNext(favoritesDao.loadFavorites());
                 e.onComplete();
             }
-        }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .map(new Function<List<Favorites>, List<Favorites>>() {
-                    @Override
-                    public List<Favorites> apply(List<Favorites> favorites) throws Exception {
-                        return favorites;
-                    }
-                })
-                .subscribe(observer);
+        });
     }
 }

@@ -10,8 +10,10 @@ import android.content.Context;
 
 import com.zaze.launcher.data.dao.FavoritesDao;
 import com.zaze.launcher.data.dao.ShortcutDao;
+import com.zaze.launcher.data.dao.WorkspaceScreenDao;
 import com.zaze.launcher.data.entity.Favorites;
 import com.zaze.launcher.data.entity.ShortcutInfo;
+import com.zaze.launcher.data.entity.WorkspaceScreen;
 import com.zaze.launcher.util.LauncherSharePref;
 import com.zaze.launcher.util.LogTag;
 import com.zaze.utils.log.ZLog;
@@ -22,9 +24,10 @@ import com.zaze.utils.log.ZLog;
  * @author : ZAZE
  * @version : 2018-01-16 - 14:52
  */
-@Database(entities = {ShortcutInfo.class, Favorites.class}, version = 1)
+@Database(entities = {ShortcutInfo.class, Favorites.class, WorkspaceScreen.class}, version = 2)
 public abstract class LauncherDatabase extends RoomDatabase {
-    private static final String EMPTY_DATABASE_CREATED = "EMPTY_DATABASE_CREATED_" + 1;
+
+    private static final String EMPTY_DATABASE_CREATED = "EMPTY_DATABASE_CREATED";
     private static final int APPWIDGET_HOST_ID = 1024;
     private static AppWidgetHost appWidgetHost;
     private static LauncherDatabase INSTANCE;
@@ -40,7 +43,6 @@ public abstract class LauncherDatabase extends RoomDatabase {
                         .build();
                 appWidgetHost = new AppWidgetHost(context, APPWIDGET_HOST_ID);
             }
-            LauncherSharePref.commit(EMPTY_DATABASE_CREATED, true);
             return INSTANCE;
         }
     }
@@ -58,10 +60,15 @@ public abstract class LauncherDatabase extends RoomDatabase {
     // --------------------------------------------------
 
     public static boolean isEmptyDatabaseCreate() {
-//        return LauncherSharePref.get(EMPTY_DATABASE_CREATED, false);
-        return true;
+        return LauncherSharePref.get(EMPTY_DATABASE_CREATED, true);
     }
 
+    public static void clearFlagEmptyDbCreated() {
+        LauncherSharePref.commit(EMPTY_DATABASE_CREATED, false);
+    }
+
+
+    // --------------------------------------------------
     public static AppWidgetHost getAppWidgetHost() {
         return appWidgetHost;
     }
@@ -71,5 +78,7 @@ public abstract class LauncherDatabase extends RoomDatabase {
     public abstract ShortcutDao shortcutDao();
 
     public abstract FavoritesDao favritesDao();
+
+    public abstract WorkspaceScreenDao workspaceScreenDao();
 
 }

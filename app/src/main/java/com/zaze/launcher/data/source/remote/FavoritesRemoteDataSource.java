@@ -9,10 +9,7 @@ import java.util.List;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.Observer;
-import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Function;
-import io.reactivex.schedulers.Schedulers;
 
 /**
  * Description :
@@ -35,18 +32,18 @@ public class FavoritesRemoteDataSource implements FavoritesDataSource {
     }
 
     @Override
-    public void saveFavorites(Observer<Boolean> observer, Favorites... favorites) {
-        //
+    public void saveFavorites(Favorites favorites) {
+
     }
 
     @Override
-    public void loadDefaultFavoritesIfNecessary(Observer<List<Favorites>> observer) {
-        //
+    public Observable<ArrayList<Long>> loadDefaultFavoritesIfNecessary() {
+        return null;
     }
 
     @Override
-    public void loadFavorites(Observer<List<Favorites>> observer) {
-        Observable.create(new ObservableOnSubscribe<List<Favorites>>() {
+    public Observable<List<Favorites>> loadFavorites() {
+        return Observable.create(new ObservableOnSubscribe<List<Favorites>>() {
             @Override
             public void subscribe(ObservableEmitter<List<Favorites>> e) throws Exception {
                 List<Favorites> list = new ArrayList<>();
@@ -54,15 +51,12 @@ public class FavoritesRemoteDataSource implements FavoritesDataSource {
                 e.onNext(list);
                 e.onComplete();
             }
-        }).subscribeOn(Schedulers.io())
-                .map(new Function<List<Favorites>, List<Favorites>>() {
-                    @Override
-                    public List<Favorites> apply(List<Favorites> favorites) throws Exception {
-                        Thread.sleep(2000L);
-                        return favorites;
-                    }
-                })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(observer);
+        }).map(new Function<List<Favorites>, List<Favorites>>() {
+            @Override
+            public List<Favorites> apply(List<Favorites> favorites) throws Exception {
+                Thread.sleep(2000L);
+                return favorites;
+            }
+        });
     }
 }

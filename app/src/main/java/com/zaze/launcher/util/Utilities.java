@@ -19,7 +19,10 @@ package com.zaze.launcher.util;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -129,9 +132,27 @@ public final class Utilities {
         }
     }
 
+    /**
+     * 是否是从右到左布局
+     *
+     * @param res res
+     * @return bool
+     */
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     public static boolean isRtl(Resources res) {
         return ATLEAST_JB_MR1 && (res.getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL);
     }
+
+    public static String findSystemApk(String action, PackageManager pm) {
+        final Intent intent = new Intent(action);
+        for (ResolveInfo info : pm.queryBroadcastReceivers(intent, 0)) {
+            if (info.activityInfo != null &&
+                    (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+                return info.activityInfo.packageName;
+            }
+        }
+        return null;
+    }
+
 
 }

@@ -10,5 +10,6 @@ import java.io.Serializable;
  * @author : ZAZE
  * @version : 2017-12-12 - 14:09
  */
+@Deprecated
 public class BaseEntity extends BaseObservable implements Serializable {
 }

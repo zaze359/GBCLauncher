@@ -25,8 +25,13 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * Description :
@@ -44,6 +49,8 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
     private LauncherCallbacks mLauncherCallbacks;
     private FrameLayout.LayoutParams hotSeatLp;
     private DragController mDragController;
+    // --------------------------------------------------
+
     private FavoritesRepository favoritesRepository;
 
     private final List<Disposable> disposableList = new ArrayList<>();
@@ -102,40 +109,40 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
     }
 
     public void loadWorkSpace() {
-        favoritesRepository.loadDefaultFavoritesIfNecessary(new Observer<List<Favorites>>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-                disposableList.add(d);
-            }
-
-            @Override
-            public void onNext(List<Favorites> list) {
-
-            }
-
-            @Override
-            public void onError(Throwable e) {
-
-            }
-
-            @Override
-            public void onComplete() {
-                favoritesRepository.loadFavorites(new Observer<List<Favorites>>() {
+        favoritesRepository.loadDefaultFavoritesIfNecessary()
+                .subscribeOn(Schedulers.io())
+                .map(new Function<ArrayList<Long>, Boolean>() {
+                    @Override
+                    public Boolean apply(ArrayList<Long> longs) throws Exception {
+                        return true;
+                    }
+                })
+                .flatMap(new Function<Boolean, ObservableSource<List<Favorites>>>() {
+                    @Override
+                    public ObservableSource<List<Favorites>> apply(Boolean aBoolean) throws Exception {
+                        return favoritesRepository.loadFavorites();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext(new Consumer<List<Favorites>>() {
+                    @Override
+                    public void accept(List<Favorites> list) throws Exception {
+                        ZLog.i(LogTag.TAG_DEBUG, "onNext : " + list);
+                    }
+                })
+                .subscribe(new Observer<List<Favorites>>() {
                     @Override
                     public void onSubscribe(Disposable d) {
-                        ZLog.i(LogTag.TAG_DEBUG, "onSubscribe");
                         disposableList.add(d);
                     }
 
                     @Override
                     public void onNext(List<Favorites> favorites) {
-                        ZLog.i(LogTag.TAG_DEBUG, "onNext : " + favorites);
                     }
 
                     @Override
                     public void onError(Throwable e) {
                         ZLog.i(LogTag.TAG_DEBUG, "onError");
-
                     }
 
                     @Override
@@ -143,8 +150,6 @@ public class LauncherViewModel extends BaseObservable implements LauncherCallbac
                         ZLog.i(LogTag.TAG_DEBUG, "onComplete");
                     }
                 });
-            }
-        });
     }
 
     // --------------------------------------------------

@@ -2,6 +2,7 @@ package com.zaze.launcher.util.parser;
 
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
+import android.text.TextUtils;
 
 import com.zaze.launcher.LauncherSettings;
 import com.zaze.launcher.data.entity.Favorites;
@@ -37,7 +38,8 @@ class FavoritesParser {
 
     private static final String HOT_SEAT_CONTAINER_NAME = LauncherSettings.Favorites.containerToString(LauncherSettings.Favorites.CONTAINER_HOT_SEAT);
 
-    private final Resources mSourceRes;
+    protected final Resources mSourceRes;
+
     private final String mRootTag;
     private final int mHotSeatAllAppsRank;
 
@@ -61,28 +63,39 @@ class FavoritesParser {
         this.tagParserMap = tagParserMap;
         XmlResourceParser parser = mSourceRes.getXml(layoutId);
         count = 0;
-        beginDocument(parser, mRootTag);
-        doParser(parser, screenIds);
+        doParser(parser, screenIds, mRootTag);
         final int result = count;
         count = 0;
         return result;
     }
 
-    private void doParser(XmlResourceParser parser, ArrayList<Long> screenIds)
+    private int parserDepth = -1;
+
+    private void doParser(XmlResourceParser parser, ArrayList<Long> screenIds, String mRootTag)
             throws XmlPullParserException, IOException {
         int eventType = parser.getEventType();
         while (eventType != XmlPullParser.END_DOCUMENT) {
             switch (eventType) {
                 case XmlPullParser.START_DOCUMENT:
-                    startDocument();
+                    startDocument(parser, mRootTag);
                     break;
                 case XmlPullParser.START_TAG:
-                    startElement(parser, screenIds);
+//                    if (parserDepth > 0 && parserDepth == parser.getDepth()) {
+//                        // 允许解析同级标签
+//                        parserDepth = -1;
+//                    }
+                    if (parserDepth < 0) {
+                        startElement(parser, screenIds);
+                    }
                     break;
                 case XmlPullParser.TEXT:
                     characters(parser);
                     break;
                 case XmlPullParser.END_TAG:
+                    if (parserDepth > 0 && parserDepth == parser.getDepth()) {
+                        // 存在不解析的标签，这个标签结束解析时置负, 允许解析同级标签
+                        parserDepth = -1;
+                    }
                     endElement(parser);
                     break;
                 default:
@@ -93,38 +106,67 @@ class FavoritesParser {
         endDocument();
     }
 
-    private void doParser(int layoutId, ArrayList<Long> screenIds)
+    private void doParser(int layoutId, ArrayList<Long> screenIds, String mRootTag)
             throws XmlPullParserException, IOException {
-        doParser(mSourceRes.getXml(layoutId), screenIds);
+        doParser(mSourceRes.getXml(layoutId), screenIds, mRootTag);
     }
 
 
     /**
-     * 开始解析文件
+     * 开始解析文件, 并处理第一个节点
+     *
+     * @param parser          parser
+     * @param rootElementName 需要解析的根节点, 若为空则不判断是否匹配
+     * @throws XmlPullParserException
+     * @throws IOException
      */
-    private void startDocument() {
+    private void startDocument(XmlResourceParser parser, String rootElementName)
+            throws XmlPullParserException, IOException {
+        ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
+        ZLog.i(LogTag.TAG_DOC, "开始解析DOC");
+        int type = parser.next();
+        while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT) {
+            type = parser.next();
+        }
+        if (type != XmlPullParser.START_TAG) {
+            throw new XmlPullParserException("No start tag found");
+        }
+        String name = parser.getName();
+        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("预处理根节点 : %s(%s)", name, parser.getDepth()));
+        if (!TextUtils.isEmpty(rootElementName)) {
+            if (!name.equals(rootElementName)) {
+                throw new XmlPullParserException("Unexpected start tag: found " + name + ", expected " + rootElementName);
+            }
+        }
     }
 
     /**
      * 结束解析文件
      */
     private void endDocument() {
+        ZLog.i(LogTag.TAG_DOC, "结束解析DOC");
+        ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
     }
 
 
     /**
      * 开始解析节点
+     * 仅当不处理这个标签时 parserDepth > 0;
+     * parserDepth < 0 可以解析, parserDepth > 0, 跳过子标签解析
+     * 该标签结束解析时 parserDepth 置为 -1
+     * 解析到同级标签的开始时 parserDepth 置为 -1??
      */
     private void startElement(XmlResourceParser parser, ArrayList<Long> screenIds)
             throws XmlPullParserException, IOException {
-        ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
         String name = parser.getName();
-        ZLog.i(LogTag.TAG_DOC, "开始解析 : " + name);
+        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("开始解析 : %s(%s)", name, parser.getDepth()));
+        parserDepth = -1;
         if (TAG_INCLUDE.equals(name)) {
+            ZLog.i(LogTag.TAG_DOC, "解析 include 内容");
             final int resId = getAttributeResourceValue(parser, ATTR_WORKSPACE, 0);
             if (resId != 0) {
                 try {
-                    doParser(resId, screenIds);
+                    doParser(resId, screenIds, null);
                 } catch (XmlPullParserException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -150,6 +192,8 @@ class FavoritesParser {
                 }
                 count++;
             }
+        } else {
+            parserDepth = parser.getDepth();
         }
     }
 
@@ -157,7 +201,7 @@ class FavoritesParser {
      * 结束解析节点
      */
     private void endElement(XmlResourceParser parser) {
-        ZLog.i(LogTag.TAG_DOC, "结束解析 : " + parser.getName());
+        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("结束解析 : %s(%s)", parser.getName(), parser.getDepth()));
         ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
     }
 
@@ -169,7 +213,7 @@ class FavoritesParser {
      * @throws XmlPullParserException
      */
     protected void characters(XmlResourceParser parser) throws IOException, XmlPullParserException {
-        ZLog.i(LogTag.TAG_DOC, "characters = " + parser.nextText());
+        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("内容 : %s(%s)", parser.nextText(), parser.getDepth()));
     }
 
     // --------------------------------------------------
@@ -183,11 +227,14 @@ class FavoritesParser {
      * @throws XmlPullParserException
      * @throws IOException
      */
+    @Deprecated
     protected static void beginDocument(XmlPullParser parser, String rootElementName)
             throws XmlPullParserException, IOException {
-        ZLog.i(LogTag.TAG_DOC, "rootElementName : " + rootElementName);
-        int type;
-        while ((type = parser.next()) != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT) {
+        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("开始解析，当前根节点 : %s(%s)", rootElementName, parser.getDepth()));
+
+        int type = parser.next();
+        while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT) {
+            type = parser.next();
         }
         if (type != XmlPullParser.START_TAG) {
             throw new XmlPullParserException("No start tag found");
@@ -229,6 +276,7 @@ class FavoritesParser {
         if (value == null) {
             value = parser.getAttributeValue(null, attribute);
         }
+        ZLog.d(LogTag.TAG_DOC, "attribute : " + attribute + " : " + value);
         return value;
     }
 

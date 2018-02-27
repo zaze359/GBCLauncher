@@ -3,14 +3,13 @@ package com.zaze.launcher.data.dao;
 import android.arch.persistence.room.Dao;
 
 /**
- * Description :
+ * Description : 工作区分屏
  *
  * @author : ZAZE
- * @version : 2018-01-16 - 14:48
+ * @version : 2018-02-22 - 14:37
  */
-@Deprecated
 @Dao
-public interface ShortcutDao {
-
+public interface WorkspaceScreenDao {
+    
 
 }

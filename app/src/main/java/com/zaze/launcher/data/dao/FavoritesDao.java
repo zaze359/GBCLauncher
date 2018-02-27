@@ -10,7 +10,7 @@ import com.zaze.launcher.data.entity.Favorites;
 import java.util.List;
 
 /**
- * Description :
+ * Description : 收藏
  *
  * @author : ZAZE
  * @version : 2018-01-20 - 13:23
@@ -25,7 +25,7 @@ public interface FavoritesDao {
      * @return
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insertFavorites(Favorites... favorites);
+    void insertFavorites(Favorites favorites);
 
     /**
      * 查询所有收藏

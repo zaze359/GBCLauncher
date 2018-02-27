@@ -8,9 +8,13 @@ import com.zaze.launcher.data.source.iface.FavoritesDataSource;
 import com.zaze.launcher.data.source.local.FavoritesLocalDataSource;
 import com.zaze.launcher.data.source.remote.FavoritesRemoteDataSource;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import io.reactivex.Observer;
+import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * Description :
@@ -31,25 +35,37 @@ public class FavoritesRepository implements FavoritesDataSource {
         return INSTANCE;
     }
 
+    public static void destroyInstance() {
+        INSTANCE = null;
+    }
+
     private FavoritesRepository(Context context) {
-        LauncherDatabase database = LauncherDatabase.getInstance(context);
-        this.localDataSource = FavoritesLocalDataSource.getInstance(database.favritesDao());
+        this.localDataSource = FavoritesLocalDataSource.getInstance(LauncherDatabase.getInstance(context).favritesDao());
         this.remoteDataSource = FavoritesRemoteDataSource.getInstance();
     }
 
     @Override
-    public void saveFavorites(Observer<Boolean> observer, Favorites... favorites) {
-        localDataSource.saveFavorites(observer, favorites);
+    public void saveFavorites(Favorites favorites) {
+        localDataSource.saveFavorites(favorites);
     }
 
     @Override
-    public void loadDefaultFavoritesIfNecessary(Observer<List<Favorites>> observer) {
-        localDataSource.loadFavorites(observer);
+    public Observable<ArrayList<Long>> loadDefaultFavoritesIfNecessary() {
+        return localDataSource.loadDefaultFavoritesIfNecessary();
     }
 
     @Override
-    public void loadFavorites(Observer<List<Favorites>> observer) {
-        localDataSource.loadFavorites(observer);
-        remoteDataSource.loadFavorites(observer);
+    public Observable<List<Favorites>> loadFavorites() {
+        return localDataSource.loadFavorites()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .map(new Function<List<Favorites>, List<Favorites>>() {
+                    @Override
+                    public List<Favorites> apply(List<Favorites> favorites) throws Exception {
+                        return favorites;
+                    }
+                });
+//        remoteDataSource.loadFavorites(observer);
     }
+
 }

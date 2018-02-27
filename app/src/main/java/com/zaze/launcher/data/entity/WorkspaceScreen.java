@@ -7,20 +7,20 @@ import android.arch.persistence.room.PrimaryKey;
  * Description :
  *
  * @author : ZAZE
- * @version : 2018-01-16 - 14:09
+ * @version : 2018-02-22 - 14:32
  */
-@Deprecated
-@Entity(tableName = "shortcut")
-public class ShortcutInfo {
+@Entity(tableName = "workspace_screen")
+public class WorkspaceScreen {
 
     @PrimaryKey
-    private int id;
+    private long id;
 
-    public int getId() {
+
+    public long getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(long id) {
         this.id = id;
     }
 }
