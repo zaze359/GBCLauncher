@@ -5,7 +5,7 @@
 
         <variable
             name="viewModel"
-            type="com.zaze.launcher.LauncherViewModel" />
+            type="com.zaze.launcher.LauncherPresenter" />
 
     </data>
 

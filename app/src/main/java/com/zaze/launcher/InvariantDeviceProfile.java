@@ -69,9 +69,13 @@ public class InvariantDeviceProfile {
     float minHeightDps;
     /**
      * Number of icons per row and column in the workspace.
-     * 工作区中每行图标的个数
+     * 工作区中每行的图标个数
      */
     public int numRows;
+    /**
+     * Number of icons per row and column in the workspace.
+     * 工作区中每列的图标个数
+     */
     public int numColumns;
     /**
      * The minimum number of predicted apps in all apps.
@@ -98,7 +102,7 @@ public class InvariantDeviceProfile {
 
     int defaultLayoutId;
 
-    int iconBitmapSize;
+    public int iconBitmapSize;
     int fillResIconDpi;
 
 

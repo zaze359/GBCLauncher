@@ -15,6 +15,7 @@ import com.zaze.utils.ZJsonUtil;
 import com.zaze.utils.log.ZLog;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import io.reactivex.Observable;
@@ -54,6 +55,12 @@ public class FavoritesLocalDataSource implements FavoritesDataSource {
     public void saveFavorites(Favorites favorites) {
         ZLog.d(LogTag.TAG_DEBUG, "saveFavorites : " + ZJsonUtil.objToJson(favorites));
         favoritesDao.insertFavorites(favorites);
+    }
+
+    @Override
+    public void deleteFavorites(List<Long> ids) {
+        favoritesDao.deleteFavorites(ids);
+
     }
 
     @Override
@@ -126,5 +133,17 @@ public class FavoritesLocalDataSource implements FavoritesDataSource {
                 e.onComplete();
             }
         });
+    }
+
+    @Override
+    public Long[] deleteEmptyFolders() {
+        Long[] ids = favoritesDao.loadEmptyFolders();
+        favoritesDao.deleteFavorites(Arrays.asList(ids));
+        return ids;
+    }
+
+    @Override
+    public void restoredRows(ArrayList<Long> restoredRows) {
+        favoritesDao.restoredRows(restoredRows);
     }
 }

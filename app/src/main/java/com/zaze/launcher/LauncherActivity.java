@@ -1,6 +1,5 @@
 package com.zaze.launcher;
 
-import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -17,26 +16,31 @@ import android.view.ViewStub;
 import android.view.Window;
 import android.view.WindowManager;
 
+import com.zaze.launcher.data.entity.ItemInfo;
 import com.zaze.launcher.databinding.ActivityLauncherBinding;
 import com.zaze.launcher.util.LogTag;
-import com.zaze.launcher.util.PermissionCode;
 import com.zaze.launcher.util.Utilities;
 import com.zaze.launcher.view.HotSeat;
+import com.zaze.launcher.view.PagedView;
+import com.zaze.launcher.view.Workspace;
 import com.zaze.utils.log.ZLog;
+import com.zaze.utils.log.ZTag;
+
+import java.util.List;
 
 /**
  * @author zaze
  */
-public class LauncherActivity extends AppCompatActivity {
+public class LauncherActivity extends AppCompatActivity implements LauncherContract.View {
 
-    private LauncherViewModel mViewModel;
+    private LauncherPresenter mViewModel;
     private LauncherCallbacks mLauncherCallbacks;
     private HotSeat mHotSeat;
+    private Workspace mWorkspace;
 
     public void setLauncherCallbacks(LauncherCallbacks launcherCallbacks) {
         this.mLauncherCallbacks = launcherCallbacks;
     }
-
 
     @Override
     public void onPostCreate(Bundle savedInstanceState) {
@@ -90,10 +94,14 @@ public class LauncherActivity extends AppCompatActivity {
         ActivityLauncherBinding binding = DataBindingUtil.setContentView(this, R.layout.activity_launcher);
         binding.setViewModel(mViewModel);
         // --------------------------------------------------
-        mViewModel.init();
+        mViewModel.initialize(this);
         setupPermission();
         setupViews();
+//        lockAllApps();
         restoreState(savedInstanceState);
+
+        mViewModel.startLoader(PagedView.INVALID_RESTORE_PAGE);
+
         setOrientation();
         if (mLauncherCallbacks != null) {
             mLauncherCallbacks.onCreate(savedInstanceState);
@@ -102,19 +110,23 @@ public class LauncherActivity extends AppCompatActivity {
                 View view = stub.inflate();
             }
         }
-        showFirstRunActivity();
-        mViewModel.showFirstRunClings();
-        mViewModel.loadWorkSpace();
+        if (shouldShowIntroScreen()) {
+            showIntroScreen();
+        } else {
+            showFirstRunActivity();
+            mViewModel.showFirstRunClings();
+        }
     }
-
 
     /**
      * 申请权限
      */
-    private void setupPermission() {
-        Utilities.checkAndRequestUserPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE, PermissionCode.WRITE_EXTERNAL_STORAGE);
+    private boolean setupPermission() {
+        boolean bool = true;
+//        bool = Utilities.checkAndRequestUserPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE, PermissionCode.WRITE_EXTERNAL_STORAGE);
 //        Utilities.checkAndRequestUserPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE, PermissionCode.READ_EXTERNAL_STORAGE);
 //        Utilities.checkAndRequestUserPermission(this, Manifest.permission.CALL_PHONE, PermissionCode.REQUEST_PERMISSION_CALL_PHONE);
+        return bool;
     }
 
     @Override
@@ -129,10 +141,10 @@ public class LauncherActivity extends AppCompatActivity {
     /**
      * 构建ViewModel
      *
-     * @return LauncherViewModel
+     * @return LauncherPresenter
      */
-    private LauncherViewModel findOrCreateViewModel() {
-        return new LauncherViewModel(this);
+    private LauncherPresenter findOrCreateViewModel() {
+        return new LauncherPresenter(this);
     }
 
     /**
@@ -141,6 +153,8 @@ public class LauncherActivity extends AppCompatActivity {
     private void setupViews() {
         mHotSeat = findViewById(R.id.launcher_hot_seat);
         mHotSeat.layout();
+        mWorkspace = findViewById(R.id.launcher_workspace);
+//        mWorkspace.setPageSwitchListener(this);
     }
 
     /**
@@ -149,6 +163,13 @@ public class LauncherActivity extends AppCompatActivity {
      * @param savedInstanceState
      */
     private void restoreState(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            return;
+        }
+        ZLog.i(ZTag.TAG_DEBUG, "加载之前保存的状态");
+        // TODO: 2018/3/6
+
+
     }
 
     /**
@@ -158,6 +179,28 @@ public class LauncherActivity extends AppCompatActivity {
         // 忽略物理感应器——即显示方向与物理感应器无关
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
     }
+
+    /**
+     * To be overriden by subclasses to indicate whether the in-activity intro screen has been
+     * dismissed. This method is ignored if #hasDismissableIntroScreen returns false.
+     */
+    private boolean shouldShowIntroScreen() {
+//        return hasDismissableIntroScreen() && !mSharedPrefs.getBoolean(INTRO_SCREEN_DISMISSED, false);
+        return false;
+    }
+
+    protected void showIntroScreen() {
+//        Log.i(TAG, "showIntroScreen");
+//        View introScreen = getIntroScreen();
+//        changeWallpaperVisiblity(false);
+//        if (introScreen != null) {
+//            mDragLayer.showOverlayView(introScreen);
+//        }
+//        if (mLauncherOverlayContainer != null) {
+//            mLauncherOverlayContainer.setVisibility(View.INVISIBLE);
+//        }
+    }
+
 
     private void showFirstRunActivity() {
         if (mViewModel.shouldRunFirstRunActivity() && mViewModel.hasFirstRunActivity()) {
@@ -174,7 +217,6 @@ public class LauncherActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         mViewModel.onActivityResult(requestCode, resultCode, data);
     }
-
 
     @Override
     protected void onStop() {
@@ -258,5 +300,40 @@ public class LauncherActivity extends AppCompatActivity {
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
         mViewModel.onTrimMemory(level);
+    }
+
+    // --------------------------------------------------
+
+
+    /**
+     * Implementation of the method from LauncherModel.Callbacks.
+     */
+    @Override
+    public int getCurrentWorkspaceScreen() {
+        if (mWorkspace != null) {
+            return mWorkspace.getCurrentPage();
+        } else {
+            return Workspace.SCREEN_COUNT / 2;
+        }
+    }
+
+    @Override
+    public void startBinding() {
+
+    }
+
+    @Override
+    public void bindScreens(List<Long> orderedScreens) {
+
+    }
+
+    @Override
+    public void onPageBoundSynchronously(int currentScreen) {
+
+    }
+
+    @Override
+    public void bindItems(List<ItemInfo> items, int start, int end, boolean forceAnimateIcons) {
+
     }
 }

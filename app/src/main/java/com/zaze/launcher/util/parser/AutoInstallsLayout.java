@@ -247,7 +247,7 @@ public class AutoInstallsLayout extends FavoritesParser {
                             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                                     Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
                     return addShortcut(activityInfo.loadLabel(mPackageManager).toString(),
-                            intent, LauncherSettings.Favorites.ITEM_TYPE_APPLICATION, values);
+                            intent, LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION, values);
                 } catch (PackageManager.NameNotFoundException e) {
                     ZLog.e(LogTag.TAG_DOC, "Unable to add favorite: " + packageName + "/" + className, e);
                     return -1;

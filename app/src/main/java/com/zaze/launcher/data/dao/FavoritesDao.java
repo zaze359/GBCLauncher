@@ -21,6 +21,7 @@ public interface FavoritesDao {
 
     /**
      * 不存在插入，存在则替换
+     *
      * @param favorites
      * @return
      */
@@ -35,4 +36,28 @@ public interface FavoritesDao {
     @Query("SELECT * FROM favorites")
     List<Favorites> loadFavorites();
 
+    /**
+     * 加载空目录
+     *
+     * @return 空目录
+     */
+    @Query("SELECT id FROM favorites WHERE itemType = 2 AND id NOT IN (SELECT container FROM favorites)")
+    Long[] loadEmptyFolders();
+
+    /**
+     * 删除收藏
+     *
+     * @param ids ids
+     */
+    @Query("DELETE FROM favorites WHERE id IN (:ids)")
+    void deleteFavorites(List<Long> ids);
+
+
+    /**
+     * 恢复rows
+     *
+     * @param restoredRows ids
+     */
+    @Query("UPDATE favorites SET restored = 0 WHERE id IN (:restoredRows)")
+    void restoredRows(List<Long> restoredRows);
 }

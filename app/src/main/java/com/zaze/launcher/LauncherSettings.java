@@ -87,7 +87,7 @@ public class LauncherSettings {
         String ICON = "icon";
     }
 
-    public static class Favorites implements BaseLauncherColumns {
+    public static class ItemColumns implements BaseLauncherColumns {
 
         /**
          * The icon is a resource identified by a package name and an integer id.

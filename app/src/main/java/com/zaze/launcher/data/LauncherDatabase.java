@@ -12,7 +12,6 @@ import com.zaze.launcher.data.dao.FavoritesDao;
 import com.zaze.launcher.data.dao.ShortcutDao;
 import com.zaze.launcher.data.dao.WorkspaceScreenDao;
 import com.zaze.launcher.data.entity.Favorites;
-import com.zaze.launcher.data.entity.ShortcutInfo;
 import com.zaze.launcher.data.entity.WorkspaceScreen;
 import com.zaze.launcher.util.LauncherSharePref;
 import com.zaze.launcher.util.LogTag;
@@ -24,7 +23,7 @@ import com.zaze.utils.log.ZLog;
  * @author : ZAZE
  * @version : 2018-01-16 - 14:52
  */
-@Database(entities = {ShortcutInfo.class, Favorites.class, WorkspaceScreen.class}, version = 2)
+@Database(entities = {Favorites.class, WorkspaceScreen.class}, version = 2)
 public abstract class LauncherDatabase extends RoomDatabase {
 
     private static final String EMPTY_DATABASE_CREATED = "EMPTY_DATABASE_CREATED";

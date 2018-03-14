@@ -36,7 +36,7 @@ class FavoritesParser {
     private static final String ATTR_X = "x";
     private static final String ATTR_Y = "y";
 
-    private static final String HOT_SEAT_CONTAINER_NAME = LauncherSettings.Favorites.containerToString(LauncherSettings.Favorites.CONTAINER_HOT_SEAT);
+    private static final String HOT_SEAT_CONTAINER_NAME = LauncherSettings.ItemColumns.containerToString(LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT);
 
     protected final Resources mSourceRes;
 
@@ -186,7 +186,7 @@ class FavoritesParser {
             long newElementId = tagParser.parseAndAdd(parser, favorites);
             if (newElementId >= 0) {
                 // 需要显示到桌面, 记录屏幕id
-                if (container == LauncherSettings.Favorites.CONTAINER_DESKTOP
+                if (container == LauncherSettings.ItemColumns.CONTAINER_DESKTOP
                         && !screenIds.contains(screenId)) {
                     screenIds.add(screenId);
                 }
@@ -253,12 +253,12 @@ class FavoritesParser {
     protected void parseContainerAndScreen(XmlResourceParser parser, long[] out) {
         if (HOT_SEAT_CONTAINER_NAME.equals(getAttributeValue(parser, ATTR_CONTAINER))) {
             // 一般表示(按照一定规范的)外部资源加载到热键中, 会嵌入一个 AllAppsButton, 之后的需要顺移一位
-            out[0] = LauncherSettings.Favorites.CONTAINER_HOT_SEAT;
+            out[0] = LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT;
             long rank = Long.parseLong(getAttributeValue(parser, ATTR_RANK));
             out[1] = (rank < mHotSeatAllAppsRank) ? rank : (rank + 1);
         } else {
             // 一般表示内部资源
-            out[0] = LauncherSettings.Favorites.CONTAINER_DESKTOP;
+            out[0] = LauncherSettings.ItemColumns.CONTAINER_DESKTOP;
             out[1] = Long.parseLong(getAttributeValue(parser, ATTR_SCREEN));
         }
     }

@@ -2,6 +2,8 @@ package com.zaze.launcher;
 
 import android.content.Context;
 
+import com.zaze.launcher.view.IconCache;
+
 /**
  * Description :
  *
@@ -20,6 +22,8 @@ public class LauncherAppState {
      */
     private DeviceProfile portraitProfile;
 
+    private final IconCache mIconCache;
+
     private static LauncherAppState instance;
 
     public static LauncherAppState getInstance(Context context) {
@@ -33,6 +37,7 @@ public class LauncherAppState {
         mInvariantDeviceProfile = new InvariantDeviceProfile(context);
         landscapeProfile = new DeviceProfile(context, mInvariantDeviceProfile, true);
         portraitProfile = new DeviceProfile(context, mInvariantDeviceProfile, false);
+        mIconCache = new IconCache(context, mInvariantDeviceProfile);
     }
 
     public InvariantDeviceProfile getInvariantDeviceProfile() {
@@ -41,5 +46,9 @@ public class LauncherAppState {
 
     public DeviceProfile getDeviceProfile() {
         return portraitProfile;
+    }
+
+    public IconCache getIconCache() {
+        return mIconCache;
     }
 }

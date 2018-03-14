@@ -12,8 +12,9 @@ import com.zaze.utils.ZSharedPrefUtil;
  */
 public class LauncherSharePref {
 
-    public static void init() {
-//        ZSharedPrefUtil.setSpName("gbc_launcher");
+    public static boolean contains(String key) {
+//        return ZSharedPrefUtil.contains(key);
+        return false;
     }
 
 

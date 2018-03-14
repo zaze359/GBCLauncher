@@ -5,7 +5,7 @@
 
         <variable
             name="viewModel"
-            type="com.zaze.launcher.LauncherViewModel" />
+            type="com.zaze.launcher.LauncherPresenter" />
 
     </data>
 
@@ -17,6 +17,12 @@
         <com.zaze.launcher.view.drag.DragLayer
             android:layout_width="match_parent"
             android:layout_height="match_parent">
+
+            <com.zaze.launcher.view.Workspace
+                android:id="@+id/launcher_workspace"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
 
             <include
                 android:id="@+id/launcher_hot_seat"

@@ -33,7 +33,10 @@ public class FavoritesRemoteDataSource implements FavoritesDataSource {
 
     @Override
     public void saveFavorites(Favorites favorites) {
+    }
 
+    @Override
+    public void deleteFavorites(List<Long> ids) {
     }
 
     @Override
@@ -58,5 +61,15 @@ public class FavoritesRemoteDataSource implements FavoritesDataSource {
                 return favorites;
             }
         });
+    }
+
+    @Override
+    public Long[] deleteEmptyFolders() {
+        return new Long[0];
+    }
+
+    @Override
+    public void restoredRows(ArrayList<Long> restoredRows) {
+
     }
 }

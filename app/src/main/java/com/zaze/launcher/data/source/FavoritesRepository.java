@@ -12,9 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.reactivex.Observable;
-import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Function;
-import io.reactivex.schedulers.Schedulers;
 
 /**
  * Description :
@@ -50,6 +48,11 @@ public class FavoritesRepository implements FavoritesDataSource {
     }
 
     @Override
+    public void deleteFavorites(List<Long> ids) {
+        localDataSource.deleteFavorites(ids);
+    }
+
+    @Override
     public Observable<ArrayList<Long>> loadDefaultFavoritesIfNecessary() {
         return localDataSource.loadDefaultFavoritesIfNecessary();
     }
@@ -57,8 +60,6 @@ public class FavoritesRepository implements FavoritesDataSource {
     @Override
     public Observable<List<Favorites>> loadFavorites() {
         return localDataSource.loadFavorites()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
                 .map(new Function<List<Favorites>, List<Favorites>>() {
                     @Override
                     public List<Favorites> apply(List<Favorites> favorites) throws Exception {
@@ -66,6 +67,16 @@ public class FavoritesRepository implements FavoritesDataSource {
                     }
                 });
 //        remoteDataSource.loadFavorites(observer);
+    }
+
+    @Override
+    public Long[] deleteEmptyFolders() {
+        return localDataSource.deleteEmptyFolders();
+    }
+
+    @Override
+    public void restoredRows(ArrayList<Long> restoredRows) {
+        localDataSource.restoredRows(restoredRows);
     }
 
 }

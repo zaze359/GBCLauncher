@@ -23,6 +23,13 @@ public interface FavoritesDataSource {
     void saveFavorites(Favorites favorites);
 
     /**
+     * 删除收藏
+     *
+     * @param ids ids
+     */
+    void deleteFavorites(List<Long> ids);
+
+    /**
      * 加载默认收藏配置
      * Loads the default workspace based on the following priority scheme:
      * 1) From the app restrictions
@@ -41,4 +48,17 @@ public interface FavoritesDataSource {
      */
     Observable<List<Favorites>> loadFavorites();
 
+    /**
+     * 删除空目录
+     *
+     * @return 删除的空目录ids
+     */
+    Long[] deleteEmptyFolders();
+
+    /**
+     * 恢复rows
+     *
+     * @param restoredRows ids
+     */
+    void restoredRows(ArrayList<Long> restoredRows);
 }
