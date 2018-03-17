@@ -434,7 +434,24 @@ public class CellLayout extends ViewGroup {
         return mCountY;
     }
 
+    public View getChildAt(int x, int y) {
+        return mShortcutsAndWidgets.getChildAt(x, y);
+    }
 
+    /**
+     * 位置是否占用
+     *
+     * @param x x
+     * @param y y
+     * @return true 占用
+     */
+    public boolean isOccupied(int x, int y) {
+        if (x < mCountX && y < mCountY) {
+            return mOccupied[x][y];
+        } else {
+            throw new RuntimeException("Position exceeds the bound of this CellLayout");
+        }
+    }
     // --------------------------------------------------
     // --------------------------------------------------
 

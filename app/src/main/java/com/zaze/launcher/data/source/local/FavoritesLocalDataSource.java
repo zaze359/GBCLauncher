@@ -75,53 +75,47 @@ public class FavoritesLocalDataSource implements FavoritesDataSource {
         return Observable.create(new ObservableOnSubscribe<AppWidgetHost>() {
             @Override
             public void subscribe(ObservableEmitter<AppWidgetHost> e) throws Exception {
-                if (LauncherDatabase.isEmptyDatabaseCreate()) {
-                    e.onNext(LauncherDatabase.getAppWidgetHost());
-                }
+                e.onNext(LauncherDatabase.getAppWidgetHost());
                 e.onComplete();
             }
-        })
-                .map(new Function<AppWidgetHost, Pair<AutoInstallsLayout, AppWidgetHost>>() {
-                    @Override
-                    public Pair<AutoInstallsLayout, AppWidgetHost> apply(AppWidgetHost appWidgetHost) throws Exception {
-                        // From the app restrictions
-                        return new Pair<>(AutoInstallsLayout.createWorkspaceLoaderFromAppRestriction(appWidgetHost, callback), appWidgetHost);
-                    }
-                })
-                .map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, Pair<AutoInstallsLayout, AppWidgetHost>>() {
-                    @Override
-                    public Pair<AutoInstallsLayout, AppWidgetHost> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
-                        if (pair.first == null) {
-                            // From a package provided by play store
-                            return new Pair<>(AutoInstallsLayout.get(pair.second, callback), pair.second);
-                        }
-                        return pair;
-                    }
-                })
-//                .map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, Pair<AutoInstallsLayout, AppWidgetHost>>() {
-//                    @Override
-//                    public Pair<AutoInstallsLayout, AppWidgetHost> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
-//                        if (pair.first == null) {
-//                            // From a package provided by play store
-//                            Context context = BaseApplication.getInstance();
-//                            return new Pair<>(AutoInstallsLayout.newInstance(context, context.getPackageName(), pair.second, callback), pair.second);
-//                        }
-//                        return pair;
-//                    }
-//                })
-                .map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, ArrayList<Long>>() {
-                    @Override
-                    public ArrayList<Long> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
-                        ArrayList<Long> screenIds = new ArrayList<>();
-                        if (pair.first == null) {
-                            // From a partner configuration APK, already in the system image
-                        } else {
-                            pair.first.loadLayout(screenIds);
-                        }
-                        LauncherDatabase.clearFlagEmptyDbCreated();
-                        return screenIds;
-                    }
-                });
+        }).map(new Function<AppWidgetHost, Pair<AutoInstallsLayout, AppWidgetHost>>() {
+            @Override
+            public Pair<AutoInstallsLayout, AppWidgetHost> apply(AppWidgetHost appWidgetHost) throws Exception {
+                // From the app restrictions
+                return new Pair<>(AutoInstallsLayout.createWorkspaceLoaderFromAppRestriction(appWidgetHost, callback), appWidgetHost);
+            }
+        }).map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, Pair<AutoInstallsLayout, AppWidgetHost>>() {
+            @Override
+            public Pair<AutoInstallsLayout, AppWidgetHost> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
+                if (pair.first == null) {
+                    // From a package provided by play store
+                    return new Pair<>(AutoInstallsLayout.get(pair.second, callback), pair.second);
+                }
+                return pair;
+            }
+        }).map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, Pair<AutoInstallsLayout, AppWidgetHost>>() {
+            @Override
+            public Pair<AutoInstallsLayout, AppWidgetHost> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
+//                if (pair.first == null) {
+//                    // From a package provided by play store
+//                    Context context = BaseApplication.getInstance();
+//                    return new Pair<>(AutoInstallsLayout.newInstance(context, context.getPackageName(), pair.second, callback), pair.second);
+//                }
+                return pair;
+            }
+        }).map(new Function<Pair<AutoInstallsLayout, AppWidgetHost>, ArrayList<Long>>() {
+            @Override
+            public ArrayList<Long> apply(Pair<AutoInstallsLayout, AppWidgetHost> pair) throws Exception {
+                ArrayList<Long> screenIds = new ArrayList<>();
+                if (pair.first == null) {
+                    // From a partner configuration APK, already in the system image
+                } else {
+                    pair.first.loadLayout(screenIds);
+                }
+                LauncherDatabase.clearFlagEmptyDbCreated();
+                return screenIds;
+            }
+        });
     }
 
     @Override

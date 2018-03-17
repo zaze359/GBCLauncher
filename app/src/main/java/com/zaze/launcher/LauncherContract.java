@@ -47,6 +47,11 @@ public interface LauncherContract {
          * @param forceAnimateIcons
          */
         void bindItems(List<ItemInfo> items, int start, int end, boolean forceAnimateIcons);
+
+        /**
+         * 绑定完成
+         */
+        void finishBindingItems();
     }
 
     interface Presenter {

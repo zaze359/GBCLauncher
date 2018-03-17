@@ -18,11 +18,18 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+            <com.zaze.launcher.view.Workspace
+                android:id="@+id/launcher_workspace"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
+
             <include
                 android:id="@+id/launcher_hot_seat"
                 layout="@layout/layout_hot_seat"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@color/white"
                 android:onLongClick="@{viewModel.onHotSeatLongClick}" />
 
         </com.zaze.launcher.view.drag.DragLayer>
@@ -36,4 +43,3 @@
             android:visibility="gone" />
     </com.zaze.launcher.view.LauncherRootView>
 </layout>
-

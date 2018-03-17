@@ -2,6 +2,7 @@ package com.zaze.launcher.compat;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
@@ -22,7 +23,7 @@ public abstract class LauncherAppsCompat {
         synchronized (sInstanceLock) {
             if (sInstance == null) {
                 if (Utilities.ATLEAST_LOLLIPOP) {
-//                    sInstance = new LauncherAppsCompatVL(context.getApplicationContext());
+                    sInstance = new LauncherAppsCompatVL(context.getApplicationContext());
                 } else {
                     sInstance = new LauncherAppsCompatV16(context.getApplicationContext());
                 }
@@ -30,6 +31,9 @@ public abstract class LauncherAppsCompat {
             return sInstance;
         }
     }
+
+
+    public abstract LauncherActivityInfoCompat resolveActivity(Intent intent, UserHandleCompat user);
 
 
     /**

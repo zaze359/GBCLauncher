@@ -244,4 +244,28 @@ public class Favorites {
     public void setOptions(int options) {
         this.options = options;
     }
+
+    @Override
+    public String toString() {
+        return "Favorites{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", intent='" + intent + '\'' +
+                ", itemType=" + itemType +
+                ", container=" + container +
+                ", screen=" + screen +
+                ", spanX=" + spanX +
+                ", spanY=" + spanY +
+                ", cellX=" + cellX +
+                ", cellY=" + cellY +
+                ", profileId=" + profileId +
+                ", restored=" + restored +
+                ", rank=" + rank +
+                ", iconType=" + iconType +
+                ", iconPackage='" + iconPackage + '\'' +
+                ", iconResource='" + iconResource + '\'' +
+                ", icon='" + icon + '\'' +
+                ", options=" + options +
+                '}';
+    }
 }

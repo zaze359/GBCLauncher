@@ -7,11 +7,15 @@ import com.zaze.launcher.data.entity.Favorites;
 import com.zaze.launcher.data.source.iface.FavoritesDataSource;
 import com.zaze.launcher.data.source.local.FavoritesLocalDataSource;
 import com.zaze.launcher.data.source.remote.FavoritesRemoteDataSource;
+import com.zaze.launcher.util.LogTag;
+import com.zaze.utils.log.ZLog;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.functions.Function;
 
 /**
@@ -54,11 +58,23 @@ public class FavoritesRepository implements FavoritesDataSource {
 
     @Override
     public Observable<ArrayList<Long>> loadDefaultFavoritesIfNecessary() {
-        return localDataSource.loadDefaultFavoritesIfNecessary();
+        if (LauncherDatabase.isEmptyDatabaseCreate()) {
+            return localDataSource.loadDefaultFavoritesIfNecessary();
+        } else {
+            return Observable.create(new ObservableOnSubscribe<ArrayList<Long>>() {
+                @Override
+                public void subscribe(ObservableEmitter<ArrayList<Long>> e) throws Exception {
+                    e.onNext(new ArrayList<Long>());
+                    e.onComplete();
+                }
+            });
+        }
+
     }
 
     @Override
     public Observable<List<Favorites>> loadFavorites() {
+        ZLog.d(LogTag.TAG_LOADER, "从数据库加载所有收藏");
         return localDataSource.loadFavorites()
                 .map(new Function<List<Favorites>, List<Favorites>>() {
                     @Override
@@ -66,7 +82,6 @@ public class FavoritesRepository implements FavoritesDataSource {
                         return favorites;
                     }
                 });
-//        remoteDataSource.loadFavorites(observer);
     }
 
     @Override

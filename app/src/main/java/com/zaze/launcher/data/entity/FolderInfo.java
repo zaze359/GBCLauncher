@@ -20,13 +20,15 @@ import java.util.ArrayList;
 
 /**
  * Represents a folder containing shortcuts or apps.
+ * @author zaze
  */
 public class FolderInfo extends ItemInfo {
     /**
      * The apps and shortcuts
      */
     public ArrayList<ShortcutInfo> contents = new ArrayList<>();
-    ArrayList<FolderListener> listeners = new ArrayList<FolderListener>();
+
+    ArrayList<FolderListener> listeners = new ArrayList<>();
 
     // --------------------------------------------------
     public int options;
@@ -47,6 +49,16 @@ public class FolderInfo extends ItemInfo {
         itemsChanged();
     }
 
+    void addListener(FolderListener listener) {
+        listeners.add(listener);
+    }
+
+    void removeListener(FolderListener listener) {
+        if (listeners.contains(listener)) {
+            listeners.remove(listener);
+        }
+    }
+
     void itemsChanged() {
         for (int i = 0; i < listeners.size(); i++) {
             listeners.get(i).onItemsChanged();
@@ -58,6 +70,12 @@ public class FolderInfo extends ItemInfo {
         this.title = favorites.getTitle();
         this.options = favorites.getOptions();
         return super.setValues(favorites);
+    }
+
+    @Override
+    public void unbind() {
+        super.unbind();
+        listeners.clear();
     }
 
     interface FolderListener {

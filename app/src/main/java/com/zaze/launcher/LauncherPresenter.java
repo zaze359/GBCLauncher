@@ -20,9 +20,11 @@ import android.view.Menu;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import com.zaze.launcher.compat.LauncherActivityInfoCompat;
 import com.zaze.launcher.compat.LauncherAppsCompat;
 import com.zaze.launcher.compat.PackageInstallerCompat;
 import com.zaze.launcher.compat.UserHandleCompat;
+import com.zaze.launcher.compat.UserManagerCompat;
 import com.zaze.launcher.data.entity.Favorites;
 import com.zaze.launcher.data.entity.FolderInfo;
 import com.zaze.launcher.data.entity.ItemInfo;
@@ -99,9 +101,16 @@ public class LauncherPresenter extends BaseObservable
     private DragController mDragController;
     private IconCache mIconCache;
 
+    final LauncherAppsCompat mLauncherApps;
+    final UserManagerCompat mUserManager;
+
+    private boolean mPaused = true;
+
     Disposable mLoaderDisposable;
     private LoaderTask mLoaderTask;
     boolean mIsLoaderTaskRunning;
+    boolean mHasLoaderCompletedOnce;
+
     /**
      * We start off with everything not loaded.
      * After that, we assume that our monitoring of the package manager
@@ -179,6 +188,15 @@ public class LauncherPresenter extends BaseObservable
      * 任何时候我们开始一个正常的加载, 我们也会清空这组runnable队列
      */
     static final ArrayList<Runnable> mDeferredBindRunnables = new ArrayList<>();
+    /**
+     * Set of runnables to be called on the background thread after the workspace binding
+     * is complete.
+     * 在workspace binding 完成后被调用
+     */
+    static final ArrayList<Runnable> mBindCompleteRunnables = new ArrayList<>();
+
+    private ArrayList<Runnable> mBindOnResumeCallbacks = new ArrayList<Runnable>();
+    private ArrayList<Runnable> mOnResumeCallbacks = new ArrayList<Runnable>();
 
 
     public void setLauncherCallbacks(LauncherCallbacks mLauncherCallbacks) {
@@ -187,6 +205,8 @@ public class LauncherPresenter extends BaseObservable
 
     public LauncherPresenter(Context context) {
         this.mContext = context.getApplicationContext();
+        mLauncherApps = LauncherAppsCompat.getInstance(mContext);
+        mUserManager = UserManagerCompat.getInstance(context);
     }
 
     // --------------------------------------------------
@@ -198,6 +218,7 @@ public class LauncherPresenter extends BaseObservable
         this.mView = view;
         mDragController = new DragController(mContext);
         favoritesRepository = FavoritesRepository.getInstance(mContext);
+        mPaused = false;
     }
 
     /**
@@ -262,7 +283,7 @@ public class LauncherPresenter extends BaseObservable
      * If there is already a loader task running, tell it to stop.
      */
     private void stopLoaderLocked() {
-        Disposable oldDisposable = mLoaderDisposable;
+        final Disposable oldDisposable = mLoaderDisposable;
         if (oldDisposable != null && !oldDisposable.isDisposed()) {
             oldDisposable.dispose();
         }
@@ -277,13 +298,42 @@ public class LauncherPresenter extends BaseObservable
     }
 
 
+    public void setWorkspaceLoading(boolean isLoading) {
+
+    }
+
+
+    // --------------------------------------------------
+
     ShortcutInfo getShortcutInfo() {
         // TODO: 2018/3/1
         return null;
     }
 
-    public ShortcutInfo getAppShortcutInfo() {
-        // TODO: 2018/3/1
+    /**
+     * Make an ShortcutInfo object for a shortcut that is an application.
+     * <p>
+     * If c is not null, then it will be used to fill in missing data like the title and icon.
+     */
+    public ShortcutInfo getAppShortcutInfo(Context context, Intent intent,
+                                           UserHandleCompat user, Favorites favorites,
+                                           boolean allowMissingTarget, boolean useLowResIcon) {
+        if (user == null) {
+            ZLog.d(LogTag.TAG_LOADER, "Null user found in getAppShortcutInfo");
+            return null;
+        }
+        ComponentName componentName = intent.getComponent();
+        if (componentName == null) {
+            ZLog.d(LogTag.TAG_LOADER, "Missing component found in getAppShortcutInfo");
+            return null;
+        }
+
+        Intent newIntent = new Intent(intent.getAction(), null);
+        newIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        newIntent.setComponent(componentName);
+        LauncherActivityInfoCompat lai = mLauncherApps.resolveActivity(newIntent, user);
+
+
         return null;
     }
 
@@ -367,6 +417,23 @@ public class LauncherPresenter extends BaseObservable
         }
     }
 
+    public boolean waitUntilResume(Runnable run) {
+        return waitUntilResume(run, false);
+    }
+
+    boolean waitUntilResume(Runnable run, boolean deletePreviousRunnables) {
+        if (mPaused) {
+            ZLog.d(LogTag.TAG_LOADER, "Deferring update until onResume");
+            if (deletePreviousRunnables) {
+                while (mBindOnResumeCallbacks.remove(run)) {
+                }
+            }
+            mBindOnResumeCallbacks.add(run);
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     // --------------------------------------------------
     // --------------------------------------------------
@@ -398,6 +465,7 @@ public class LauncherPresenter extends BaseObservable
     @Override
     public void onResume() {
         ZLog.i(LogTag.TAG_LIFECYCLE, "onResume");
+        mPaused = false;
         if (mLauncherCallbacks != null) {
             mLauncherCallbacks.onResume();
         }
@@ -423,6 +491,7 @@ public class LauncherPresenter extends BaseObservable
 
     @Override
     public void onPause() {
+        mPaused = true;
         ZLog.i(LogTag.TAG_LIFECYCLE, "onPause");
         if (mLauncherCallbacks != null) {
             mLauncherCallbacks.onPause();
@@ -617,12 +686,18 @@ public class LauncherPresenter extends BaseObservable
     @Override
     public boolean hasCustomContentToLeft() {
         ZLog.i(LogTag.TAG_LIFECYCLE, "hasCustomContentToLeft");
+        if (mLauncherCallbacks != null) {
+            return mLauncherCallbacks.hasCustomContentToLeft();
+        }
         return false;
     }
 
     @Override
     public void populateCustomContentContainer() {
         ZLog.i(LogTag.TAG_LIFECYCLE, "populateCustomContentContainer");
+        if (mLauncherCallbacks != null) {
+            mLauncherCallbacks.populateCustomContentContainer();
+        }
     }
 
     @Override
@@ -742,6 +817,14 @@ public class LauncherPresenter extends BaseObservable
                 ZLog.d(ZTag.TAG_DEBUG, "step 2: loading all apps");
                 loadAndBindAllApps();
             }
+            synchronized (mLock) {
+                // If we are still the last one to be scheduled, remove ourselves.
+                if (mLoaderTask == this) {
+                    mLoaderTask = null;
+                }
+                mIsLoaderTaskRunning = false;
+                mHasLoaderCompletedOnce = true;
+            }
         }
 
         private void loadAndBindWorkspace() {
@@ -774,6 +857,7 @@ public class LauncherPresenter extends BaseObservable
                 public void onNext(Boolean aBoolean) {
                     synchronized (LoaderTask.this) {
                         if (mStopped) {
+                            ZLog.d(LogTag.TAG_LOADER, "mStopped");
                             return;
                         }
                         mWorkspaceLoaded = true;
@@ -783,6 +867,7 @@ public class LauncherPresenter extends BaseObservable
 
                 @Override
                 public void onError(Throwable e) {
+                    e.printStackTrace();
                 }
 
                 @Override
@@ -800,7 +885,7 @@ public class LauncherPresenter extends BaseObservable
         private void waitForIdle() {
             synchronized (LoaderTask.this) {
                 ZLog.d(LogTag.TAG_LOADER, "waitForIdle");
-                final long workspaceWaitTime = 0;
+                final long workspaceWaitTime = SystemClock.uptimeMillis();
                 mHandler.postIdle(new Runnable() {
                     @Override
                     public void run() {
@@ -833,309 +918,309 @@ public class LauncherPresenter extends BaseObservable
          */
         public Observable<Boolean> loadWorkspace() {
             final HashMap<String, Integer> installingPkgs = PackageInstallerCompat.getInstance(mContext).updateAndGetActiveSessionCache();
-            final LauncherAppsCompat launcherApps = LauncherAppsCompat.getInstance(mContext);
             final PackageManager packageManager = mContext.getPackageManager();
             final ArrayList<Long> itemsToRemove = new ArrayList<>();
             final ArrayList<Long> restoredRows = new ArrayList<>();
             final LongArrayMap<ItemInfo[][]> occupied = new LongArrayMap<>();
             final LongSparseArray<UserHandleCompat> allUsers = new LongSparseArray<>();
-//            for (UserHandleCompat user : mUserManager.getUserProfiles()) {
-//                allUsers.put(mUserManager.getSerialNumberForUser(user), user);
-//            }
-            return favoritesRepository.loadDefaultFavoritesIfNecessary().flatMap(new Function<ArrayList<Long>, ObservableSource<List<Favorites>>>() {
-                @Override
-                public ObservableSource<List<Favorites>> apply(ArrayList<Long> longs) throws Exception {
-                    ZLog.d(LogTag.TAG_LOADER, "读取所有收藏");
-                    return favoritesRepository.loadFavorites();
-                }
-            }).flatMap(new Function<List<Favorites>, ObservableSource<Favorites>>() {
-                @Override
-                public ObservableSource<Favorites> apply(List<Favorites> list) throws Exception {
-                    ZLog.d(LogTag.TAG_LOADER, "分发处理收藏");
-                    return ObservableFromIterable.fromIterable(list);
-                }
-            }).filter(new Predicate<Favorites>() {
-                @Override
-                public boolean test(Favorites favorites) throws Exception {
-                    if (mStopped) {
-                        ZLog.d(LogTag.TAG_LOADER, "stopped");
-                    }
-                    return mStopped;
-                }
-            }).map(new Function<Favorites, Boolean>() {
-                @Override
-                public Boolean apply(Favorites favorites) throws Exception {
-                    synchronized (sBgLock) {
-                        ZLog.d(LogTag.TAG_LOADER, "处理Favorites : %s", favorites);
-                        UserHandleCompat user;
-                        Intent intent;
-                        int container;
-                        long serialNumber;
-                        ShortcutInfo shortcutInfo;
-                        final long id = favorites.getId();
-                        final int itemType = favorites.getItemType();
-                        final int promiseType = favorites.getRestored();
-                        boolean restored = 0 != promiseType;
-                        boolean itemReplaced = false;
-                        int disabledState = ShortcutInfo.DEFAULT;
-                        serialNumber = favorites.getProfileId();
-                        container = (int) favorites.getContainer();
-                        switch (itemType) {
-                            case LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION:
-                            case LauncherSettings.ItemColumns.ITEM_TYPE_SHORTCUT:
-                                user = allUsers.get(serialNumber);
-//                            if (user == null) {
-//                                // 对应用户已经被删除, 移除
-//                                itemsToRemove.add(id);
-//                                continue;
-//                            }
-                                try {
-                                    intent = Intent.parseUri(favorites.getIntent(), 0);
-                                    ComponentName cn = intent.getComponent();
-                                    if (cn != null && !TextUtils.isEmpty(cn.getPackageName())) {
-                                        boolean validPkg = launcherApps.isPackageEnabledForProfile(cn.getPackageName(), user);
-                                        boolean validComponent = validPkg && launcherApps.isActivityEnabledForProfile(cn, user);
-                                        if (validComponent) {
-                                            // TODO ???????
-                                            if (restored) {
-                                                // no special handling necessary for this item
+            for (UserHandleCompat user : mUserManager.getUserProfiles()) {
+                allUsers.put(mUserManager.getSerialNumberForUser(user), user);
+            }
+            return favoritesRepository.loadDefaultFavoritesIfNecessary()
+                    .flatMap(new Function<ArrayList<Long>, ObservableSource<List<Favorites>>>() {
+                        @Override
+                        public ObservableSource<List<Favorites>> apply(ArrayList<Long> longs) throws Exception {
+                            return favoritesRepository.loadFavorites();
+                        }
+                    }).flatMap(new Function<List<Favorites>, ObservableSource<Favorites>>() {
+                        @Override
+                        public ObservableSource<Favorites> apply(List<Favorites> list) throws Exception {
+                            ZLog.d(LogTag.TAG_LOADER, "分发处理收藏");
+                            return ObservableFromIterable.fromIterable(list);
+                        }
+                    }).filter(new Predicate<Favorites>() {
+                        @Override
+                        public boolean test(Favorites favorites) throws Exception {
+                            ZLog.d(LogTag.TAG_LOADER, favorites.toString());
+                            if (mStopped) {
+                                ZLog.d(LogTag.TAG_LOADER, "stopped");
+                            }
+                            return !mStopped;
+                        }
+                    }).map(new Function<Favorites, Boolean>() {
+                        @Override
+                        public Boolean apply(Favorites favorites) throws Exception {
+                            synchronized (sBgLock) {
+                                ZLog.d(LogTag.TAG_LOADER, "处理Favorites : %s", favorites);
+                                UserHandleCompat user;
+                                Intent intent;
+                                int container;
+                                long serialNumber;
+                                ShortcutInfo shortcutInfo;
+                                long id = favorites.getId();
+                                final int itemType = favorites.getItemType();
+                                final int promiseType = favorites.getRestored();
+                                boolean restored = 0 != promiseType;
+                                boolean itemReplaced = false;
+                                int disabledState = ShortcutInfo.DEFAULT;
+                                container = (int) favorites.getContainer();
+                                switch (itemType) {
+                                    case LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION:
+                                    case LauncherSettings.ItemColumns.ITEM_TYPE_SHORTCUT:
+                                        serialNumber = favorites.getProfileId();
+                                        user = allUsers.get(serialNumber);
+                                        if (user == null) {
+                                            // 对应用户已经被删除, 移除
+                                            itemsToRemove.add(id);
+                                            break;
+                                        }
+                                        try {
+                                            intent = Intent.parseUri(favorites.getIntent(), 0);
+                                            ComponentName cn = intent.getComponent();
+                                            if (cn != null && !TextUtils.isEmpty(cn.getPackageName())) {
+                                                boolean validPkg = mLauncherApps.isPackageEnabledForProfile(cn.getPackageName(), user);
+                                                boolean validComponent = validPkg && mLauncherApps.isActivityEnabledForProfile(cn, user);
+                                                if (validComponent) {
+                                                    // TODO ???????
+                                                    if (restored) {
+                                                        // no special handling necessary for this item
 //                                                restoredRows.add(id);
-                                                restored = false;
-                                            }
-                                        } else if (validPkg) {
-                                            intent = null;
-                                            if ((promiseType & ShortcutInfo.FLAG_AUTOINTALL_ICON) != 0) {
-                                                // We allow auto install apps to have their intent
-                                                // updated after an install.
-                                                intent = packageManager.getLaunchIntentForPackage(cn.getPackageName());
-                                                if (intent != null) {
-                                                    favorites.setIntent(intent.toUri(0));
-                                                    favoritesRepository.saveFavorites(favorites);
+                                                        restored = false;
+                                                    }
+                                                } else if (validPkg) {
+                                                    intent = null;
+                                                    if ((promiseType & ShortcutInfo.FLAG_AUTOINTALL_ICON) != 0) {
+                                                        // We allow auto install apps to have their intent
+                                                        // updated after an install.
+                                                        intent = packageManager.getLaunchIntentForPackage(cn.getPackageName());
+                                                        if (intent != null) {
+                                                            favorites.setIntent(intent.toUri(0));
+                                                            favoritesRepository.saveFavorites(favorites);
+                                                        }
+                                                    }
+                                                    if (intent == null) {
+                                                        // 应用已安装，但是不可用
+                                                        ZLog.w(LogTag.TAG_ERROR, "Invalid component removed: " + favorites.getIntent());
+                                                        itemsToRemove.add(id);
+                                                        break;
+                                                    } else {
+                                                        restoredRows.add(id);
+                                                        restored = false;
+                                                    }
+                                                } else if (restored) {
+                                                    // 当前包还不可用，但是也许过会将会被安装
+
                                                 }
-                                            }
-                                            if (intent == null) {
-                                                // 应用已安装，但是不可用
-                                                ZLog.w(LogTag.TAG_ERROR, "Invalid component removed: " + favorites.getIntent());
-                                                itemsToRemove.add(id);
-                                                break;
-                                            } else {
+                                            } else if (cn == null) {
+                                                // For shortcuts with no component, keep them as they are
                                                 restoredRows.add(id);
                                                 restored = false;
                                             }
-                                        } else if (restored) {
-                                            // 当前包还不可用，但是也许过会将会被安装
-
+                                        } catch (URISyntaxException e) {
+                                            ZLog.w(LogTag.TAG_ERROR, "Invalid uri: " + favorites.getIntent());
+                                            itemsToRemove.add(id);
+                                            break;
                                         }
-                                    } else if (cn == null) {
-                                        // For shortcuts with no component, keep them as they are
-                                        restoredRows.add(id);
-                                        restored = false;
-                                    }
-                                } catch (URISyntaxException e) {
-                                    ZLog.w(LogTag.TAG_ERROR, "Invalid uri: " + favorites.getIntent());
-                                    itemsToRemove.add(id);
-                                    break;
-                                }
-                                boolean useLowResIcon = container >= 0 && favorites.getRank() >= FolderIcon.NUM_ITEMS_IN_PREVIEW;
-                                if (itemReplaced) {
-                                    if (user.equals(UserHandleCompat.myUserHandle())) {
-                                        shortcutInfo = getAppShortcutInfo();
-                                    } else {
-                                        // Don't replace items for other profiles.
-                                        itemsToRemove.add(id);
-                                        break;
-                                    }
-                                } else if (restored) {
-                                    if (user.equals(UserHandleCompat.myUserHandle())) {
-                                        ZLog.d(LogTag.TAG_LOADER, "constructing info for partially restored package");
-                                        shortcutInfo = getRestoredItemInfo();
-                                        intent = getRestoredItemIntent();
-                                    } else {
-                                        // Don't restore items for other profiles.
-                                        itemsToRemove.add(id);
-                                        break;
-                                    }
-                                } else if (itemType == LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION) {
-                                    shortcutInfo = getAppShortcutInfo();
-                                } else {
-                                    shortcutInfo = getShortcutInfo();
-                                    // App shortcuts that used to be automatically added to Launcher
-                                    // didn't always have the correct intent flags set, so do that
-                                    // here
-                                    if (intent.getAction() != null &&
-                                            intent.getCategories() != null &&
-                                            intent.getAction().equals(Intent.ACTION_MAIN) &&
-                                            intent.getCategories().contains(Intent.CATEGORY_LAUNCHER)) {
-                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                                                Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-                                    }
-                                }
-                                if (shortcutInfo != null) {
-                                    shortcutInfo.setValues(favorites);
-                                    shortcutInfo.intent = intent;
-                                    shortcutInfo.intent.putExtra(ItemInfo.EXTRA_PROFILE, serialNumber);
-                                    if (shortcutInfo.promisedIntent != null) {
-                                        shortcutInfo.promisedIntent.putExtra(ItemInfo.EXTRA_PROFILE, serialNumber);
-                                    }
-                                    shortcutInfo.isDisabled = disabledState;
-                                    // TODO 安全模式
+                                        boolean useLowResIcon = container >= 0 && favorites.getRank() >= FolderIcon.NUM_ITEMS_IN_PREVIEW;
+                                        if (itemReplaced) {
+                                            if (user.equals(UserHandleCompat.myUserHandle())) {
+                                                shortcutInfo = getAppShortcutInfo(favorites);
+                                            } else {
+                                                // Don't replace items for other profiles.
+                                                itemsToRemove.add(id);
+                                                break;
+                                            }
+                                        } else if (restored) {
+                                            if (user.equals(UserHandleCompat.myUserHandle())) {
+                                                ZLog.d(LogTag.TAG_LOADER, "constructing info for partially restored package");
+                                                shortcutInfo = getRestoredItemInfo();
+                                                intent = getRestoredItemIntent();
+                                            } else {
+                                                // Don't restore items for other profiles.
+                                                itemsToRemove.add(id);
+                                                break;
+                                            }
+                                        } else if (itemType == LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION) {
+                                            shortcutInfo = getAppShortcutInfo();
+                                        } else {
+                                            shortcutInfo = getShortcutInfo();
+                                            // App shortcuts that used to be automatically added to Launcher
+                                            // didn't always have the correct intent flags set, so do that
+                                            // here
+                                            if (intent.getAction() != null &&
+                                                    intent.getCategories() != null &&
+                                                    intent.getAction().equals(Intent.ACTION_MAIN) &&
+                                                    intent.getCategories().contains(Intent.CATEGORY_LAUNCHER)) {
+                                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                                                        Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                                            }
+                                        }
+                                        if (shortcutInfo != null) {
+                                            shortcutInfo.setValues(favorites);
+                                            shortcutInfo.intent = intent;
+                                            shortcutInfo.intent.putExtra(ItemInfo.EXTRA_PROFILE, serialNumber);
+                                            if (shortcutInfo.promisedIntent != null) {
+                                                shortcutInfo.promisedIntent.putExtra(ItemInfo.EXTRA_PROFILE, serialNumber);
+                                            }
+                                            shortcutInfo.isDisabled = disabledState;
+                                            // TODO 安全模式
 //                                        if (isSafeMode && !Utilities.isSystemApp(context, intent)) {
 //                                            shortcutInfo.isDisabled |= ShortcutInfo.FLAG_DISABLED_SAFEMODE;
 //                                        }
 
-                                    // check & update map of what's occupied
-                                    if (!checkItemPlacement(occupied, shortcutInfo, sBgWorkspaceScreens)) {
-                                        itemsToRemove.add(id);
-                                        break;
-                                    }
-
-                                    if (restored) {
-                                        ComponentName cn = shortcutInfo.getTargetComponent();
-                                        if (cn != null) {
-                                            Integer progress = installingPkgs.get(cn.getPackageName());
-                                            if (progress != null) {
-                                                shortcutInfo.setInstallProgress(progress);
-                                            } else {
-                                                shortcutInfo.status &= ~ShortcutInfo.FLAG_INSTALL_SESSION_ACTIVE;
+                                            // check & update map of what's occupied
+                                            if (!checkItemPlacement(occupied, shortcutInfo, sBgWorkspaceScreens)) {
+                                                itemsToRemove.add(id);
+                                                break;
                                             }
+
+                                            if (restored) {
+                                                ComponentName cn = shortcutInfo.getTargetComponent();
+                                                if (cn != null) {
+                                                    Integer progress = installingPkgs.get(cn.getPackageName());
+                                                    if (progress != null) {
+                                                        shortcutInfo.setInstallProgress(progress);
+                                                    } else {
+                                                        shortcutInfo.status &= ~ShortcutInfo.FLAG_INSTALL_SESSION_ACTIVE;
+                                                    }
+                                                }
+                                            }
+                                            switch (container) {
+                                                case LauncherSettings.ItemColumns.CONTAINER_DESKTOP:
+                                                case LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT:
+                                                    sBgWorkspaceItems.add(shortcutInfo);
+                                                    break;
+                                                default:
+                                                    // Item is in a user folder
+                                                    FolderInfo folderInfo = findOrMakeFolder(sBgFolders, container);
+                                                    folderInfo.add(shortcutInfo);
+                                                    break;
+                                            }
+                                            sBgItemsIdMap.put(shortcutInfo.id, shortcutInfo);
+                                        } else {
+                                            throw new RuntimeException("Unexpected null ShortcutInfo");
                                         }
-                                    }
-                                    switch (container) {
-                                        case LauncherSettings.ItemColumns.CONTAINER_DESKTOP:
-                                        case LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT:
-                                            sBgWorkspaceItems.add(shortcutInfo);
+                                        break;
+                                    case LauncherSettings.ItemColumns.ITEM_TYPE_FOLDER:
+                                        FolderInfo folderInfo = findOrMakeFolder(sBgFolders, id);
+                                        folderInfo.setValues(favorites);
+                                        // check & update map of what's occupied
+                                        if (!checkItemPlacement(occupied, folderInfo, sBgWorkspaceScreens)) {
+                                            itemsToRemove.add(id);
                                             break;
-                                        default:
-                                            // Item is in a user folder
-                                            FolderInfo folderInfo = findOrMakeFolder(sBgFolders, container);
-                                            folderInfo.add(shortcutInfo);
-                                            break;
-                                    }
-                                    sBgItemsIdMap.put(shortcutInfo.id, shortcutInfo);
-                                } else {
-                                    throw new RuntimeException("Unexpected null ShortcutInfo");
-                                }
-                                break;
-                            case LauncherSettings.ItemColumns.ITEM_TYPE_FOLDER:
-                                FolderInfo folderInfo = findOrMakeFolder(sBgFolders, id);
-                                folderInfo.setValues(favorites);
-                                // check & update map of what's occupied
-                                if (!checkItemPlacement(occupied, folderInfo, sBgWorkspaceScreens)) {
-                                    itemsToRemove.add(id);
-                                    break;
-                                }
-                                switch (container) {
-                                    case LauncherSettings.ItemColumns.CONTAINER_DESKTOP:
-                                    case LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT:
-                                        sBgWorkspaceItems.add(folderInfo);
+                                        }
+                                        switch (container) {
+                                            case LauncherSettings.ItemColumns.CONTAINER_DESKTOP:
+                                            case LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT:
+                                                sBgWorkspaceItems.add(folderInfo);
+                                                break;
+                                            default:
+                                                break;
+                                        }
+
+                                        if (restored) {
+                                            // no special handling required for restored folders
+                                            restoredRows.add(id);
+                                        }
+                                        sBgItemsIdMap.put(folderInfo.id, folderInfo);
+                                        sBgFolders.put(folderInfo.id, folderInfo);
+                                        break;
+                                    case LauncherSettings.ItemColumns.ITEM_TYPE_APPWIDGET:
+                                    case LauncherSettings.ItemColumns.ITEM_TYPE_CUSTOM_APPWIDGET:
+                                        // TODO APPWIDGET
                                         break;
                                     default:
                                         break;
                                 }
-
-                                if (restored) {
-                                    // no special handling required for restored folders
-                                    restoredRows.add(id);
+                            }
+                            return true;
+                        }
+                    }).toList().map(new Function<List<Boolean>, ArrayList<Long>>() {
+                        @Override
+                        public ArrayList<Long> apply(List<Boolean> booleans) throws Exception {
+                            return itemsToRemove;
+                        }
+                    }).toObservable().map(new Function<ArrayList<Long>, Boolean>() {
+                        @Override
+                        public Boolean apply(ArrayList<Long> itemsToRemove) throws Exception {
+                            if (itemsToRemove.size() > 0) {
+                                ZLog.d(LogTag.TAG_LOADER, "移除无效item");
+                                favoritesRepository.deleteFavorites(itemsToRemove);
+                                return true;
+                            }
+                            return false;
+                        }
+                    }).map(new Function<Boolean, Boolean>() {
+                        @Override
+                        public Boolean apply(Boolean aBoolean) throws Exception {
+                            ZLog.d(LogTag.TAG_LOADER, "移除空目录");
+                            for (long folderId : favoritesRepository.deleteEmptyFolders()) {
+                                sBgWorkspaceItems.remove(sBgFolders.get(folderId));
+                                sBgFolders.remove(folderId);
+                                sBgItemsIdMap.remove(folderId);
+                            }
+                            return true;
+                        }
+                    }).map(new Function<Boolean, Boolean>() {
+                        @Override
+                        public Boolean apply(Boolean aBoolean) throws Exception {
+                            // 对所有folder的content进行排序，并且确保前3个item是高分辨率的
+                            // Sort all the folder items and make sure the first 3 items are high resolution.
+                            for (FolderInfo folder : sBgFolders) {
+                                Collections.sort(folder.contents, Folder.ITEM_POS_COMPARATOR);
+                                int pos = 0;
+                                for (ShortcutInfo info : folder.contents) {
+                                    if (info.usingLowResIcon) {
+                                        info.updateIcon(mIconCache, false);
+                                    }
+                                    pos++;
+                                    if (pos >= FolderIcon.NUM_ITEMS_IN_PREVIEW) {
+                                        break;
+                                    }
                                 }
-                                sBgItemsIdMap.put(folderInfo.id, folderInfo);
-                                sBgFolders.put(folderInfo.id, folderInfo);
-                                break;
-                            case LauncherSettings.ItemColumns.ITEM_TYPE_APPWIDGET:
-                            case LauncherSettings.ItemColumns.ITEM_TYPE_CUSTOM_APPWIDGET:
-                                // TODO APPWIDGET
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                    return true;
-                }
-            }).toList().map(new Function<List<Boolean>, ArrayList<Long>>() {
-                @Override
-                public ArrayList<Long> apply(List<Boolean> booleans) throws Exception {
-                    return itemsToRemove;
-                }
-            }).toObservable().map(new Function<ArrayList<Long>, Boolean>() {
-                @Override
-                public Boolean apply(ArrayList<Long> itemsToRemove) throws Exception {
-                    if (itemsToRemove.size() > 0) {
-                        ZLog.d(LogTag.TAG_LOADER, "移除无效item");
-                        favoritesRepository.deleteFavorites(itemsToRemove);
-                        return true;
-                    }
-                    return false;
-                }
-            }).map(new Function<Boolean, Boolean>() {
-                @Override
-                public Boolean apply(Boolean aBoolean) throws Exception {
-                    ZLog.d(LogTag.TAG_LOADER, "移除空目录");
-                    for (long folderId : favoritesRepository.deleteEmptyFolders()) {
-                        sBgWorkspaceItems.remove(sBgFolders.get(folderId));
-                        sBgFolders.remove(folderId);
-                        sBgItemsIdMap.remove(folderId);
-                    }
-                    return true;
-                }
-            }).map(new Function<Boolean, Boolean>() {
-                @Override
-                public Boolean apply(Boolean aBoolean) throws Exception {
-                    // 对所有folder的content进行排序，并且确保前3个item是高分辨率的
-                    // Sort all the folder items and make sure the first 3 items are high resolution.
-                    for (FolderInfo folder : sBgFolders) {
-                        Collections.sort(folder.contents, Folder.ITEM_POS_COMPARATOR);
-                        int pos = 0;
-                        for (ShortcutInfo info : folder.contents) {
-                            if (info.usingLowResIcon) {
-                                info.updateIcon(mIconCache, false);
                             }
-                            pos++;
-                            if (pos >= FolderIcon.NUM_ITEMS_IN_PREVIEW) {
-                                break;
-                            }
+                            return true;
                         }
-                    }
-                    return true;
-                }
-            }).map(new Function<Boolean, Boolean>() {
-                @Override
-                public Boolean apply(Boolean aBoolean) throws Exception {
-                    if (restoredRows.size() > 0) {
-                        // Update restored items that no longer require special handling
-                        // 更新需要恢复的items 不再需要特殊处理
-                        favoritesRepository.restoredRows(restoredRows);
-                    }
-                    return null;
-                }
-            }).map(new Function<Boolean, Boolean>() {
-                @Override
-                public Boolean apply(Boolean aBoolean) throws Exception {
+                    }).map(new Function<Boolean, Boolean>() {
+                        @Override
+                        public Boolean apply(Boolean aBoolean) throws Exception {
+                            if (restoredRows.size() > 0) {
+                                // Update restored items that no longer require special handling
+                                // 更新需要恢复的items 不再需要特殊处理
+                                favoritesRepository.restoredRows(restoredRows);
+                            }
+                            return true;
+                        }
+                    }).map(new Function<Boolean, Boolean>() {
+                        @Override
+                        public Boolean apply(Boolean aBoolean) throws Exception {
 //                        if (!isSdCardReady && !sPendingPackages.isEmpty()) {
 //                            context.registerReceiver(new AppsAvailabilityCheck(),
 //                                    new IntentFilter(StartupReceiver.SYSTEM_READY),
 //                                    null, sWorker);
 //                        }
-                    return true;
-                }
-            }).map(new Function<Boolean, Boolean>() {
-                @Override
-                public Boolean apply(Boolean aBoolean) throws Exception {
-                    ZLog.d(LogTag.TAG_LOADER, "移除空的分屏");
-                    ArrayList<Long> unusedScreens = new ArrayList<>(sBgWorkspaceScreens);
-                    for (ItemInfo item : sBgItemsIdMap) {
-                        long screenId = item.screenId;
-                        if (item.container == LauncherSettings.ItemColumns.CONTAINER_DESKTOP &&
-                                unusedScreens.contains(screenId)) {
-                            unusedScreens.remove(screenId);
+                            return true;
                         }
-                    }
-                    // If there are any empty screens remove them, and update.
-                    if (unusedScreens.size() != 0) {
-                        sBgWorkspaceScreens.removeAll(unusedScreens);
-                        updateWorkspaceScreenOrder(mContext, sBgWorkspaceScreens);
-                    }
-                    return true;
-                }
-            });
+                    }).map(new Function<Boolean, Boolean>() {
+                        @Override
+                        public Boolean apply(Boolean aBoolean) throws Exception {
+                            ZLog.d(LogTag.TAG_LOADER, "移除空的分屏");
+                            ArrayList<Long> unusedScreens = new ArrayList<>(sBgWorkspaceScreens);
+                            for (ItemInfo item : sBgItemsIdMap) {
+                                long screenId = item.screenId;
+                                if (item.container == LauncherSettings.ItemColumns.CONTAINER_DESKTOP &&
+                                        unusedScreens.contains(screenId)) {
+                                    unusedScreens.remove(screenId);
+                                }
+                            }
+                            // If there are any empty screens remove them, and update.
+                            if (unusedScreens.size() != 0) {
+                                sBgWorkspaceScreens.removeAll(unusedScreens);
+                                updateWorkspaceScreenOrder(mContext, sBgWorkspaceScreens);
+                            }
+                            return true;
+                        }
+                    });
         }
 
         /**
@@ -1154,7 +1239,7 @@ public class LauncherPresenter extends BaseObservable
                 ZLog.d(LogTag.TAG_LOADER, "LoaderTask running with no launcher");
                 return;
             }
-            ZLog.d(LogTag.TAG_LOADER, "bindWorkspace");
+            ZLog.d(LogTag.TAG_LOADER, "bindWorkspace 绑定工作区数据到视图");
             // 拷贝数据进行处理
             ArrayList<ItemInfo> workspaceItems = new ArrayList<>();
 //            ArrayList<LauncherAppWidgetInfo> appWidgets = new ArrayList<LauncherAppWidgetInfo>();
@@ -1200,16 +1285,7 @@ public class LauncherPresenter extends BaseObservable
             sortWorkspaceItemsSpatially(otherWorkspaceItems);
             // Tell the workspace that we're about to start binding items
             // 告诉工作区 , 我们准备开始绑定
-            r = new Runnable() {
-                @Override
-                public void run() {
-                    LauncherContract.View view = tryGetView(oldView);
-                    if (view != null) {
-                        view.startBinding();
-                    }
-                }
-            };
-            runOnMainThread(r);
+            startBinding(oldView);
             //
             bindWorkspaceScreens(oldView, orderedScreenIds);
             // Load items on the current page
@@ -1227,6 +1303,7 @@ public class LauncherPresenter extends BaseObservable
                 };
                 runOnMainThread(r);
             }
+
             // Load all the remaining pages (if we are loading synchronously, we want to defer this
             // work until after the first render)
             // 加载所有剩余的页
@@ -1235,9 +1312,79 @@ public class LauncherPresenter extends BaseObservable
             }
             bindWorkspaceItems(oldView, otherWorkspaceItems, otherAppWidgets, otherFolders,
                     (isLoadingSynchronously ? mDeferredBindRunnables : null));
+            // Tell the workspace that we're done binding items
+            // 通知workspace 我们绑定完成
+            r = new Runnable() {
+                @Override
+                public void run() {
+                    LauncherContract.View view = tryGetView(oldView);
+                    if (view != null) {
+                        view.finishBindingItems();
+                    }
+                    mIsLoadingAndBindingWorkspace = false;
+                    // Run all the bind complete runnables after workspace is bound.
+                    // 在工作区当顶之后, 执行所有的 bind complete runnables
+                    if (!mBindCompleteRunnables.isEmpty()) {
+                        for (final Runnable r : mBindCompleteRunnables) {
+                            runOnWorkerThread(r);
+                        }
+                        mBindCompleteRunnables.clear();
+                    }
+                    ZLog.d(LogTag.TAG_LOADER, "bound workspace in "
+                            + (SystemClock.uptimeMillis() - t) + "ms");
+                }
+            };
+            if (isLoadingSynchronously) {
+                synchronized (mDeferredBindRunnables) {
+                    mDeferredBindRunnables.add(r);
+                }
+            } else {
+                runOnMainThread(r);
+            }
         }
 
+        /**
+         * Refreshes the shortcuts shown on the workspace.
+         */
+        private void startBinding(final LauncherContract.View oldView) {
+            runOnMainThread(new Runnable() {
+                @Override
+                public void run() {
+                    LauncherContract.View view = tryGetView(oldView);
+                    if (view != null) {
+                        setWorkspaceLoading(true);
+                        // If we're starting binding all over again, clear any bind calls we'd postponed in
+                        // the past (see waitUntilResume) -- we don't need them since we're starting binding
+                        // from scratch again
+                        mBindOnResumeCallbacks.clear();
+                        //
+                        view.startBinding();
+                    }
+                }
+            });
+        }
+
+
+        /**
+         * Unbinds all the sBgWorkspaceItems and sBgAppWidgets on the main thread
+         */
         private void unbindWorkspaceItemsOnMainThread() {
+            // Ensure that we don't use the same workspace items data structure on the main thread
+            // by making a copy of workspace items first.
+            // 确保不在主线程中使用同一个workspace item 数据源, 首先拷贝一份数据
+            final ArrayList<ItemInfo> tmpItems = new ArrayList<>();
+            synchronized (sBgLock) {
+                tmpItems.addAll(sBgWorkspaceItems);
+//                tmpItems.addAll(sBgAppWidgets);
+            }
+            runOnMainThread(new Runnable() {
+                @Override
+                public void run() {
+                    for (ItemInfo item : tmpItems) {
+                        item.unbind();
+                    }
+                }
+            });
         }
 
         /**
@@ -1419,6 +1566,7 @@ public class LauncherPresenter extends BaseObservable
             // Bind the workspace items
             // 绑定items
             int num = workspaceItems.size();
+            ZLog.i(LogTag.TAG_LOADER, "bindWorkspaceItems : " + num);
             for (int i = 0; i < num; i += ITEMS_CHUNK) {
                 final int start = i;
                 final int chunkSize = (i + ITEMS_CHUNK <= num) ? ITEMS_CHUNK : (num - i);
@@ -1444,8 +1592,6 @@ public class LauncherPresenter extends BaseObservable
             if (!folders.isEmpty()) {
 
             }
-
-
         }
     }
 

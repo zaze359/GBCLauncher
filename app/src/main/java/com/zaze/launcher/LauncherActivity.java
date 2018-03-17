@@ -1,5 +1,7 @@
 package com.zaze.launcher;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
 import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -11,32 +13,45 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.Window;
 import android.view.WindowManager;
 
+import com.zaze.launcher.data.entity.FolderInfo;
 import com.zaze.launcher.data.entity.ItemInfo;
+import com.zaze.launcher.data.entity.ShortcutInfo;
 import com.zaze.launcher.databinding.ActivityLauncherBinding;
+import com.zaze.launcher.util.LauncherAnimUtils;
 import com.zaze.launcher.util.LogTag;
 import com.zaze.launcher.util.Utilities;
+import com.zaze.launcher.view.BubbleTextView;
+import com.zaze.launcher.view.CellLayout;
+import com.zaze.launcher.view.FolderIcon;
 import com.zaze.launcher.view.HotSeat;
 import com.zaze.launcher.view.PagedView;
 import com.zaze.launcher.view.Workspace;
 import com.zaze.utils.log.ZLog;
-import com.zaze.utils.log.ZTag;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
  * @author zaze
  */
-public class LauncherActivity extends AppCompatActivity implements LauncherContract.View {
+public class LauncherActivity extends AppCompatActivity implements LauncherContract.View, View.OnClickListener {
+    private static final String TAG = "LauncherActivity" + LogTag.TAG_BASE;
 
     private LauncherPresenter mViewModel;
     private LauncherCallbacks mLauncherCallbacks;
     private HotSeat mHotSeat;
     private Workspace mWorkspace;
+    private final ArrayList<Integer> mSynchronouslyBoundPages = new ArrayList<>();
+    private LayoutInflater mInflater;
+
 
     public void setLauncherCallbacks(LauncherCallbacks launcherCallbacks) {
         this.mLauncherCallbacks = launcherCallbacks;
@@ -51,7 +66,7 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
     @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
-        ZLog.i(LogTag.TAG_DEBUG, "onAttachedToWindow");
+        ZLog.i(TAG, "onAttachedToWindow");
         setupTransparentSystemBarsForLollipop();
     }
 
@@ -74,7 +89,7 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
     @Override
     public void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        ZLog.i(LogTag.TAG_DEBUG, "onDetachedFromWindow");
+        ZLog.i(TAG, "onDetachedFromWindow");
 //        updateAutoAdvanceState
     }
 
@@ -91,6 +106,8 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
         mViewModel.setLauncherCallbacks(mLauncherCallbacks);
         mViewModel.preOnCreate();
         super.onCreate(savedInstanceState);
+        mInflater = getLayoutInflater();
+
         ActivityLauncherBinding binding = DataBindingUtil.setContentView(this, R.layout.activity_launcher);
         binding.setViewModel(mViewModel);
         // --------------------------------------------------
@@ -99,9 +116,7 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
         setupViews();
 //        lockAllApps();
         restoreState(savedInstanceState);
-
         mViewModel.startLoader(PagedView.INVALID_RESTORE_PAGE);
-
         setOrientation();
         if (mLauncherCallbacks != null) {
             mLauncherCallbacks.onCreate(savedInstanceState);
@@ -166,7 +181,7 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
         if (savedInstanceState == null) {
             return;
         }
-        ZLog.i(ZTag.TAG_DEBUG, "加载之前保存的状态");
+        ZLog.i(TAG, "加载之前保存的状态");
         // TODO: 2018/3/6
 
 
@@ -304,6 +319,12 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
 
     // --------------------------------------------------
 
+    @Override
+    public void onClick(View v) {
+
+    }
+    // --------------------------------------------------
+
 
     /**
      * Implementation of the method from LauncherModel.Callbacks.
@@ -317,23 +338,151 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
         }
     }
 
+    // ------------------------ about bind start --------------------------
+
+    /**
+     * Refreshes the shortcuts shown on the workspace.
+     */
     @Override
     public void startBinding() {
-
+        ZLog.i(TAG, "startBinding");
+        // Clear the workspace because it's going to be rebound
+        mWorkspace.clearDropTargets();
+        mWorkspace.removeAllWorkspaceScreens();
+//        mWidgetsToAdvance.clear();
+        if (mHotSeat != null) {
+            mHotSeat.resetLayout();
+        }
     }
 
     @Override
-    public void bindScreens(List<Long> orderedScreens) {
+    public void bindScreens(List<Long> orderedScreenIds) {
+        ZLog.i(TAG, "bindScreens");
+        bindAddScreens(orderedScreenIds);
+        // If there are no screens, we need to have an empty screen
+        if (orderedScreenIds.size() == 0) {
+            mWorkspace.addExtraEmptyScreen();
+        }
+        // Create the custom content page (this call updates mDefaultScreen which calls
+        // setCurrentPage() so ensure that all pages are added before calling this).
+        if (mViewModel.hasCustomContentToLeft()) {
+            mWorkspace.createCustomContentContainer();
+            mViewModel.populateCustomContentContainer();
+        }
+    }
 
+    private void bindAddScreens(List<Long> orderedScreenIds) {
+        int count = orderedScreenIds.size();
+        for (int i = 0; i < count; i++) {
+            mWorkspace.insertNewWorkspaceScreenBeforeEmptyScreen(orderedScreenIds.get(i));
+        }
     }
 
     @Override
-    public void onPageBoundSynchronously(int currentScreen) {
-
+    public void onPageBoundSynchronously(int page) {
+        ZLog.i(TAG, "onPageBoundSynchronously : " + page);
+        mSynchronouslyBoundPages.add(page);
     }
 
     @Override
-    public void bindItems(List<ItemInfo> items, int start, int end, boolean forceAnimateIcons) {
+    public void bindItems(final List<ItemInfo> shortcuts, final int start, final int end, final boolean forceAnimateIcons) {
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                bindItems(shortcuts, start, end, forceAnimateIcons);
+            }
+        };
+        if (mViewModel.waitUntilResume(r)) {
+            return;
+        }
+        ZLog.i(TAG, "bindItems : %s/%s", start, end);
+        // Get the list of added shortcuts and intersect them with the set of shortcuts here
+        final AnimatorSet anim = LauncherAnimUtils.createAnimatorSet();
+        final Collection<Animator> bounceAnims = new ArrayList<>();
+//        final boolean animateIcons = forceAnimateIcons && canRunNewAppsAnimation();
+        final boolean animateIcons = false;
+        Workspace workspace = mWorkspace;
+        long newShortcutsScreenId = -1;
+        for (int i = start; i < end; i++) {
+            final ItemInfo item = shortcuts.get(i);
+            // Short circuit if we are loading dock items for a configuration which has no dock
+            if (item.container == LauncherSettings.ItemColumns.CONTAINER_HOT_SEAT &&
+                    mHotSeat == null) {
+                continue;
+            }
+            final View view;
+            switch (item.itemType) {
+                case LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION:
+                case LauncherSettings.ItemColumns.ITEM_TYPE_SHORTCUT:
+                    ShortcutInfo info = (ShortcutInfo) item;
+                    view = createShortcut(info);
+                    /*
+                     * TODO: FIX collision case
+                     */
+                    if (item.container == LauncherSettings.ItemColumns.CONTAINER_DESKTOP) {
+                        CellLayout cl = mWorkspace.getScreenWithId(item.screenId);
+                        if (cl != null && cl.isOccupied(item.cellX, item.cellY)) {
+                            View v = cl.getChildAt(item.cellX, item.cellY);
+                            Object tag = v.getTag();
+                            ZLog.d(TAG, "Collision while binding workspace item: " + item
+                                    + ". Collides with " + tag);
+                        }
+                    }
+                    break;
+                case LauncherSettings.ItemColumns.ITEM_TYPE_FOLDER:
+                    // TODO: 2018/3/16
+                    view = FolderIcon.fromXml(R.layout.folder_icon_view, this,
+                            (ViewGroup) workspace.getChildAt(workspace.getCurrentPage()),
+                            (FolderInfo) item, null);
+                    break;
+                default:
+                    throw new RuntimeException("Invalid Item Type");
+            }
+            workspace.addInScreenFromBind(view, item.container, item.screenId, item.cellX,
+                    item.cellY, 1, 1);
+            if (animateIcons) {
+                // Animate all the applications up now
+                // TODO: 2018/3/16
+            }
+        }
 
+        if (animateIcons) {
+            // TODO: 2018/3/16
+        }
+        workspace.requestLayout();
+    }
+
+    @Override
+    public void finishBindingItems() {
+        ZLog.i(TAG, "finishBindingItems");
+    }
+    // ----------------------- about bind end   --------------------------
+
+    /**
+     * Creates a view representing a shortcut.
+     *
+     * @param info The data structure describing the shortcut.
+     */
+    View createShortcut(ShortcutInfo info) {
+        return createShortcut((ViewGroup) mWorkspace.getChildAt(mWorkspace.getCurrentPage()), info);
+    }
+
+    /**
+     * Creates a view representing a shortcut inflated from the specified resource.
+     *
+     * @param parent The group the shortcut belongs to.
+     * @param info   The data structure describing the shortcut.
+     * @return A View inflated from layoutResId.
+     */
+    public View createShortcut(ViewGroup parent, ShortcutInfo info) {
+        BubbleTextView favorite = (BubbleTextView) mInflater.inflate(R.layout.app_icon_view,
+                parent, false);
+//        favorite.applyFromShortcutInfo(info, mIconCache);
+        favorite.setCompoundDrawablePadding(
+                LauncherAppState.getInstance(this).getDeviceProfile().iconDrawablePaddingPx
+        );
+        favorite.setOnClickListener(this);
+//        favorite.setOnFocusChangeListener(mFocusHandler);
+        return favorite;
     }
 }

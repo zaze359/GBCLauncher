@@ -1,15 +1,21 @@
 <resources>
-    <style name="Icon">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">match_parent</item>
-        <item name="android:layout_gravity">center</item>
-        <item name="android:gravity">center_horizontal</item>
-        <item name="android:singleLine">true</item>
-        <item name="android:ellipsize">marquee</item>
-        <item name="android:textColor">@color/workspace_icon_text_color</item>
-        <item name="android:shadowRadius">2.0</item>
-        <item name="android:shadowColor">#B0000000</item>
-        <item name="android:fontFamily">sans-serif-condensed</item>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
     </style>
+
+    <style name="BaseWallpaperTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <!--以当前壁纸为背景-->
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <style name="Theme" parent="@style/BaseWallpaperTheme" />
 
 </resources>

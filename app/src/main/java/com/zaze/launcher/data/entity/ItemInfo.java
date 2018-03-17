@@ -97,4 +97,32 @@ public class ItemInfo {
         return this;
     }
 
+
+    /**
+     * It is very important that sub-classes implement this if they contain any references
+     * to the activity (anything in the view hierarchy etc.). If not, leaks can result since
+     * ItemInfo objects persist across rotation and can hence leak by holding stale references
+     * to the old view hierarchy / activity.
+     */
+    public void unbind() {
+    }
+
+    @Override
+    public String toString() {
+        return "ItemInfo{" +
+                "id=" + id +
+                ", itemType=" + itemType +
+                ", container=" + container +
+                ", screenId=" + screenId +
+                ", cellX=" + cellX +
+                ", cellY=" + cellY +
+                ", spanX=" + spanX +
+                ", spanY=" + spanY +
+                ", minSpanX=" + minSpanX +
+                ", minSpanY=" + minSpanY +
+                ", rank=" + rank +
+                ", title='" + title + '\'' +
+                ", contentDescription='" + contentDescription + '\'' +
+                '}';
+    }
 }
