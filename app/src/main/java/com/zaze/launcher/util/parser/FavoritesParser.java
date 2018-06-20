@@ -30,9 +30,9 @@ class FavoritesParser {
      * Attrs for "Include"
      */
     private static final String ATTR_WORKSPACE = "workspace";
-    private static final String ATTR_CONTAINER = "container";
+    protected static final String ATTR_CONTAINER = "container";
     private static final String ATTR_RANK = "rank";
-    private static final String ATTR_SCREEN = "screen";
+    protected static final String ATTR_SCREEN = "screen";
     private static final String ATTR_X = "x";
     private static final String ATTR_Y = "y";
 
@@ -122,8 +122,8 @@ class FavoritesParser {
      */
     private void startDocument(XmlResourceParser parser, String rootElementName)
             throws XmlPullParserException, IOException {
-        ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
-        ZLog.i(LogTag.TAG_DOC, "开始解析DOC");
+        ZLog.d(LogTag.TAG_DOC, "-----------------------------------");
+        ZLog.d(LogTag.TAG_DOC, "开始解析DOC");
         int type = parser.next();
         while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT) {
             type = parser.next();
@@ -132,7 +132,7 @@ class FavoritesParser {
             throw new XmlPullParserException("No start tag found");
         }
         String name = parser.getName();
-        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("预处理根节点 : %s(%s)", name, parser.getDepth()));
+        ZLog.d(LogTag.TAG_DOC, ZStringUtil.format("预处理根节点 : %s(%s)", name, parser.getDepth()));
         if (!TextUtils.isEmpty(rootElementName)) {
             if (!name.equals(rootElementName)) {
                 throw new XmlPullParserException("Unexpected start tag: found " + name + ", expected " + rootElementName);
@@ -144,8 +144,8 @@ class FavoritesParser {
      * 结束解析文件
      */
     private void endDocument() {
-        ZLog.i(LogTag.TAG_DOC, "结束解析DOC");
-        ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
+        ZLog.d(LogTag.TAG_DOC, "结束解析DOC");
+        ZLog.d(LogTag.TAG_DOC, "-----------------------------------");
     }
 
 
@@ -159,10 +159,10 @@ class FavoritesParser {
     private void startElement(XmlResourceParser parser, ArrayList<Long> screenIds)
             throws XmlPullParserException, IOException {
         String name = parser.getName();
-        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("开始解析 : %s(%s)", name, parser.getDepth()));
+        ZLog.d(LogTag.TAG_DOC, ZStringUtil.format("开始解析Element : %s(%s)", name, parser.getDepth()));
         parserDepth = -1;
         if (TAG_INCLUDE.equals(name)) {
-            ZLog.i(LogTag.TAG_DOC, "解析 include 内容");
+            ZLog.d(LogTag.TAG_DOC, "解析 include 内容");
             final int resId = getAttributeResourceValue(parser, ATTR_WORKSPACE, 0);
             if (resId != 0) {
                 try {
@@ -201,8 +201,8 @@ class FavoritesParser {
      * 结束解析节点
      */
     private void endElement(XmlResourceParser parser) {
-        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("结束解析 : %s(%s)", parser.getName(), parser.getDepth()));
-        ZLog.i(LogTag.TAG_DOC, "-----------------------------------");
+        ZLog.d(LogTag.TAG_DOC, ZStringUtil.format("结束解析Element : %s(depth : %s)", parser.getName(), parser.getDepth()));
+        ZLog.d(LogTag.TAG_DOC, "-----------------------------------");
     }
 
 
@@ -213,7 +213,7 @@ class FavoritesParser {
      * @throws XmlPullParserException
      */
     protected void characters(XmlResourceParser parser) throws IOException, XmlPullParserException {
-        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("内容 : %s(%s)", parser.nextText(), parser.getDepth()));
+        ZLog.d(LogTag.TAG_DOC, ZStringUtil.format("内容 : %s(%s)", parser.nextText(), parser.getDepth()));
     }
 
     // --------------------------------------------------
@@ -230,7 +230,7 @@ class FavoritesParser {
     @Deprecated
     protected static void beginDocument(XmlPullParser parser, String rootElementName)
             throws XmlPullParserException, IOException {
-        ZLog.i(LogTag.TAG_DOC, ZStringUtil.format("开始解析，当前根节点 : %s(%s)", rootElementName, parser.getDepth()));
+        ZLog.d(LogTag.TAG_DOC, ZStringUtil.format("开始解析，当前根节点 : %s(%s)", rootElementName, parser.getDepth()));
 
         int type = parser.next();
         while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT) {

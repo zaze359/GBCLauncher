@@ -68,6 +68,7 @@ public abstract class LauncherDatabase extends RoomDatabase {
 
 
     // --------------------------------------------------
+
     public static AppWidgetHost getAppWidgetHost() {
         return appWidgetHost;
     }

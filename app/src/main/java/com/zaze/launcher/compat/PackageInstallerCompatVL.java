@@ -27,7 +27,7 @@ public class PackageInstallerCompatVL extends PackageInstallerCompat {
 
     public PackageInstallerCompatVL(Context context) {
         mInstaller = context.getPackageManager().getPackageInstaller();
-        mCache = LauncherAppState.getInstance(context).getIconCache();
+        mCache = LauncherAppState.getInstance().getIconCache();
     }
 
     @Override

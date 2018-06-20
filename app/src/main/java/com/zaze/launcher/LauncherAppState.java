@@ -26,9 +26,9 @@ public class LauncherAppState {
 
     private static LauncherAppState instance;
 
-    public static LauncherAppState getInstance(Context context) {
+    public static LauncherAppState getInstance() {
         if (instance == null) {
-            instance = new LauncherAppState(context.getApplicationContext());
+            instance = new LauncherAppState(MyApplication.getInstance());
         }
         return instance;
     }

@@ -12,7 +12,7 @@ public class LauncherSettings {
     /**
      * Columns required on table staht will be subject to backup and restore.
      */
-    interface ChangeLogColumns extends BaseColumns {
+    private interface ChangeLogColumns extends BaseColumns {
         /**
          * The time of the last update to this row.
          * <P>Type: INTEGER</P>
@@ -20,7 +20,7 @@ public class LauncherSettings {
         String MODIFIED = "modified";
     }
 
-    interface BaseLauncherColumns extends ChangeLogColumns {
+    private interface BaseLauncherColumns extends ChangeLogColumns {
         /**
          * Descriptive name of the gesture that can be displayed to the user.
          * <P>Type: TEXT</P>
@@ -127,6 +127,7 @@ public class LauncherSettings {
          */
         public static final int ITEM_TYPE_CUSTOM_APPWIDGET = 5;
 
+
         /**
          * The favorite is a clock
          */
@@ -144,6 +145,7 @@ public class LauncherSettings {
          */
         @Deprecated
         static final int ITEM_TYPE_WIDGET_PHOTO_FRAME = 1002;
+
     }
 
 }

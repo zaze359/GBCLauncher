@@ -105,11 +105,11 @@ public class CellLayout extends ViewGroup {
     boolean[][] mOccupied;
     boolean[][] mTmpOccupied;
 
-    private boolean isHotSeat;
     private float mHotSeatScale = 1f;
 
     private boolean mDropPending = false;
     private boolean mIsDragTarget = true;
+    private boolean mIsHotSeat = false;
 
 
     private final TransitionDrawable mBackground;
@@ -133,7 +133,7 @@ public class CellLayout extends ViewGroup {
         setWillNotDraw(false);
         setClipToPadding(false);
         //
-        DeviceProfile grid = LauncherAppState.getInstance(context).getDeviceProfile();
+        DeviceProfile grid = LauncherAppState.getInstance().getDeviceProfile();
 //        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CellLayout, defStyle, 0);
         mCellWidth = mCellHeight = -1;
         mFixedCellWidth = mFixedCellHeight = -1;
@@ -168,9 +168,10 @@ public class CellLayout extends ViewGroup {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int widthSpecMode = MeasureSpec.getMode(widthMeasureSpec);
         int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
+        //
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSize = MeasureSpec.getSize(heightMeasureSpec);
-        // 计算子view的尺寸
+        // 计算childView可用空间大小
         int childWidthSize = widthSize - getPaddingLeft() - getPaddingRight();
         int childHeightSize = heightSize - getPaddingTop() - getPaddingBottom();
         // --------------------------------------------------
@@ -302,6 +303,7 @@ public class CellLayout extends ViewGroup {
         mShortcutsAndWidgets.removeViewsInLayout(start, count);
     }
 
+
     private void clearOccupiedCells() {
         for (int x = 0; x < mCountX; x++) {
             for (int y = 0; y < mCountY; y++) {
@@ -311,6 +313,12 @@ public class CellLayout extends ViewGroup {
     }
 
     // --------------------------------------------------
+    // --------------------------------------------------
+
+
+    public ShortcutAndWidgetContainer getShortcutsAndWidgets() {
+        return mShortcutsAndWidgets;
+    }
 
     /**
      * 是否是hotSeat
@@ -318,7 +326,7 @@ public class CellLayout extends ViewGroup {
      * @param isHotSeat isHotSeat
      */
     public void setIsHotSeat(boolean isHotSeat) {
-        this.isHotSeat = isHotSeat;
+        this.mIsHotSeat = isHotSeat;
         mShortcutsAndWidgets.setIsHotSeatLayout(isHotSeat);
     }
 
@@ -344,10 +352,10 @@ public class CellLayout extends ViewGroup {
     public boolean addViewToCellLayout(View child, int index, int childId, LayoutParams params, boolean markCells) {
         final LayoutParams lp = params;
         // HotSeat icons - remove text
-//        if (child instanceof BubbleTextView) {
-//            BubbleTextView bubbleChild = (BubbleTextView) child;
-//            bubbleChild.setTextVisibility(!mIsHotseat);
-//        }
+        if (child instanceof BubbleTextView) {
+            BubbleTextView bubbleChild = (BubbleTextView) child;
+            bubbleChild.setTextVisibility(!mIsHotSeat);
+        }
         child.setScaleX(getChildrenScale());
         child.setScaleY(getChildrenScale());
         // Generate an id for each view, this assumes we have at most 256x256 cells
@@ -423,7 +431,7 @@ public class CellLayout extends ViewGroup {
      * @return float
      */
     public float getChildrenScale() {
-        return isHotSeat ? mHotSeatScale : 1.0f;
+        return mIsHotSeat ? mHotSeatScale : 1.0f;
     }
 
     public int getCountX() {

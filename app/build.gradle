@@ -1,4 +1,6 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
 
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
@@ -49,10 +51,12 @@ dependencies {
     compile "android.arch.persistence.room:runtime:$rootProject.roomVersion"
     annotationProcessor "android.arch.persistence.room:compiler:$rootProject.roomVersion"
 
-    compile 'com.zaze:zazecommon:1.1.1@aar'
-    compile 'com.zaze:zazeutil:1.2.1'
+    compile 'com.zaze:zazeutil:1.2.9'
+    compile 'com.zaze:zazecommon:1.2.3@aar'
     compile 'com.google.code.gson:gson:2.8.0'
     compile "com.google.guava:guava:$rootProject.guavaVersion"
-    compile 'io.reactivex.rxjava2:rxandroid:2.0.1'
-    compile 'io.reactivex.rxjava2:rxjava:2.1.7'
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+}
+repositories {
+    mavenCentral()
 }

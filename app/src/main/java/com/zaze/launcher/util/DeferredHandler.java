@@ -118,6 +118,10 @@ public class DeferredHandler {
         }
     }
 
+    /**
+     * 取出延迟队列中的第一个,  若是延迟执行的消息则加入到消息机制的延迟处理(IdleHandler)中
+     * 否则就发送消息交由消息机制处理
+     */
     void scheduleNextLocked() {
         if (mQueue.size() > 0) {
             Runnable peek = mQueue.getFirst();

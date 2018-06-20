@@ -23,6 +23,11 @@ import android.os.UserHandle;
 
 import com.zaze.launcher.util.Utilities;
 
+/**
+ * 用户处理(用于多用户情况)
+ *
+ * @author zaze
+ */
 public class UserHandleCompat {
     private UserHandle mUser;
 

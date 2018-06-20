@@ -26,9 +26,9 @@ import com.zaze.launcher.util.Utilities;
  * @version : 2018-01-07 - 00:00
  */
 public class HotSeat extends FrameLayout {
-    private CellLayout mContentLayout;
+    private CellLayout mContent;
 
-    private final boolean isVerticalHotSeat;
+    private final boolean mHasVerticalHotSeat;
     private int mAllAppsButtonRank;
 
 
@@ -42,38 +42,38 @@ public class HotSeat extends FrameLayout {
 
     public HotSeat(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        isVerticalHotSeat = LauncherAppState.getInstance(context).getDeviceProfile().isVerticalBarLayout();
+        mHasVerticalHotSeat = LauncherAppState.getInstance().getDeviceProfile().isVerticalBarLayout();
     }
 
 
     @Override
     public void setOnLongClickListener(@Nullable OnLongClickListener l) {
-        mContentLayout.setOnLongClickListener(l);
+        mContent.setOnLongClickListener(l);
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        DeviceProfile grid = LauncherAppState.getInstance(getContext()).getDeviceProfile();
+        DeviceProfile grid = LauncherAppState.getInstance().getDeviceProfile();
         int hotSeatCount = grid.inv.numHotSeatIcons;
-        mContentLayout = findViewById(R.id.hot_seat_layout);
+        mContent = findViewById(R.id.hot_seat_layout);
         mAllAppsButtonRank = grid.inv.hotSeatAllAppsRank;
         if (grid.isLandscape && !grid.isLargeTablet) {
-            mContentLayout.setGridSize(1, hotSeatCount);
+            mContent.setGridSize(1, hotSeatCount);
         } else {
-            mContentLayout.setGridSize(hotSeatCount, 1);
+            mContent.setGridSize(hotSeatCount, 1);
         }
-        mContentLayout.setIsHotSeat(true);
+        mContent.setIsHotSeat(true);
         resetLayout();
     }
 
     public void resetLayout() {
-        mContentLayout.removeAllViewsInLayout();
+        mContent.removeAllViewsInLayout();
         // 默认添加 allAppsButton
         Context context = getContext();
-        DeviceProfile grid = LauncherAppState.getInstance(context).getDeviceProfile();
+        DeviceProfile grid = LauncherAppState.getInstance().getDeviceProfile();
         LayoutInflater inflater = LayoutInflater.from(context);
-        TextView allAppsButton = (TextView) inflater.inflate(R.layout.all_apps_button, mContentLayout, false);
+        TextView allAppsButton = (TextView) inflater.inflate(R.layout.all_apps_button, mContent, false);
         Drawable d = context.getResources().getDrawable(R.drawable.all_apps_button_icon);
         grid.resizeIconDrawable(d);
         allAppsButton.setCompoundDrawables(null, d, null, null);
@@ -102,14 +102,13 @@ public class HotSeat extends FrameLayout {
 
             }
         });
-
         // Note: We do this to ensure that the hotseat is always laid out in the orientation of
         // the hotseat in order regardless of which orientation they were added
         int x = getCellXFromOrder(mAllAppsButtonRank);
         int y = getCellYFromOrder(mAllAppsButtonRank);
         CellLayout.LayoutParams lp = new CellLayout.LayoutParams(x, y, 1, 1);
         lp.canReorder = false;
-        mContentLayout.addViewToCellLayout(allAppsButton, -1, allAppsButton.getId(), lp, true);
+        mContent.addViewToCellLayout(allAppsButton, -1, allAppsButton.getId(), lp, true);
     }
 
     /**
@@ -117,7 +116,7 @@ public class HotSeat extends FrameLayout {
      */
     public void layout() {
         FrameLayout.LayoutParams hotSeatLp = (LayoutParams) getLayoutParams();
-        DeviceProfile deviceProfile = LauncherAppState.getInstance(getContext()).getDeviceProfile();
+        DeviceProfile deviceProfile = LauncherAppState.getInstance().getDeviceProfile();
         boolean isLayoutRtl = Utilities.isRtl(getResources());
         Rect padding = deviceProfile.getWorkspacePadding(isLayoutRtl);
         int edgeMarginPx = deviceProfile.edgeMarginPx;
@@ -127,7 +126,7 @@ public class HotSeat extends FrameLayout {
             hotSeatLp.gravity = Gravity.END;
             hotSeatLp.width = hotSeatBarHeightPx;
             hotSeatLp.height = ViewGroup.LayoutParams.MATCH_PARENT;
-            mContentLayout.setPadding(0, 2 * edgeMarginPx, 0, 2 * edgeMarginPx);
+            mContent.setPadding(0, 2 * edgeMarginPx, 0, 2 * edgeMarginPx);
         } else if (deviceProfile.isTablet) {
             // 平板 固定底部, padding特殊处理
             hotSeatLp.gravity = Gravity.BOTTOM;
@@ -141,11 +140,18 @@ public class HotSeat extends FrameLayout {
             hotSeatLp.gravity = Gravity.BOTTOM;
             hotSeatLp.width = ViewGroup.LayoutParams.MATCH_PARENT;
             hotSeatLp.height = hotSeatBarHeightPx;
-            mContentLayout.setPadding(2 * edgeMarginPx, 0,
+            mContent.setPadding(2 * edgeMarginPx, 0,
                     2 * edgeMarginPx, 0);
         }
         setLayoutParams(hotSeatLp);
     }
+
+    public CellLayout getLayout() {
+        return mContent;
+    }
+
+
+    // --------------------------------------------------
 
     /**
      * 在X轴上的顺序
@@ -154,7 +160,7 @@ public class HotSeat extends FrameLayout {
      * @return
      */
     int getCellXFromOrder(int rank) {
-        return isVerticalHotSeat ? 0 : rank;
+        return mHasVerticalHotSeat ? 0 : rank;
     }
 
     /**
@@ -164,7 +170,10 @@ public class HotSeat extends FrameLayout {
      * @return
      */
     int getCellYFromOrder(int rank) {
-        return isVerticalHotSeat ? (mContentLayout.getCountY() - (rank + 1)) : 0;
+        return mHasVerticalHotSeat ? (mContent.getCountY() - (rank + 1)) : 0;
     }
 
+    int getOrderInHotSeat(int x, int y) {
+        return mHasVerticalHotSeat ? (mContent.getCountY() - y - 1) : x;
+    }
 }

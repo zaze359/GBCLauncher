@@ -46,7 +46,7 @@ public class AutoInstallsLayout extends FavoritesParser {
     private static final String TAG_APP_ICON = "appicon";
     private static final String TAG_AUTO_INSTALL = "autoinstall";
     private static final String TAG_FOLDER = "folder";
-    private static final String TAG_APPWIDGET = "appwidget";
+    protected static final String TAG_APPWIDGET = "appwidget";
     private static final String TAG_SHORTCUT = "shortcut";
     private static final String TAG_EXTRA = "extra";
 
@@ -78,7 +78,7 @@ public class AutoInstallsLayout extends FavoritesParser {
                               LayoutParserCallback callback, Resources targetResources,
                               int layoutId, String tagWorkspace) {
         this(context, appWidgetHost, callback, targetResources, layoutId, tagWorkspace,
-                LauncherAppState.getInstance(context).getInvariantDeviceProfile().hotSeatAllAppsRank);
+                LauncherAppState.getInstance().getInvariantDeviceProfile().hotSeatAllAppsRank);
     }
 
     public AutoInstallsLayout(Context context, AppWidgetHost appWidgetHost,
@@ -96,7 +96,7 @@ public class AutoInstallsLayout extends FavoritesParser {
         if (TextUtils.isEmpty(packageName)) {
             return null;
         }
-        InvariantDeviceProfile grid = LauncherAppState.getInstance(context).getInvariantDeviceProfile();
+        InvariantDeviceProfile grid = LauncherAppState.getInstance().getInvariantDeviceProfile();
         try {
             Resources targetResources = context.getPackageManager().getResourcesForApplication(packageName);
             // 尝试加载包含grid size 和 hotSeat的布局
@@ -172,8 +172,17 @@ public class AutoInstallsLayout extends FavoritesParser {
     /**
      * 加载布局
      *
+     * @return result
+     */
+    public int loadLayout() {
+        return loadLayout(new ArrayList<Long>());
+    }
+
+    /**
+     * 加载布局
+     *
      * @param screenIds screenIds
-     * @return screenIds
+     * @return result
      */
     public int loadLayout(ArrayList<Long> screenIds) {
         try {
@@ -198,8 +207,8 @@ public class AutoInstallsLayout extends FavoritesParser {
         parsers.put(TAG_APP_ICON, new AppShortcutParser());
         parsers.put(TAG_AUTO_INSTALL, new AutoInstallParser());
 //        parsers.put(TAG_FOLDER, new FolderParser());
-//        parsers.put(TAG_SHORTCUT, new ShortcutParser(mSourceRes));
         parsers.put(TAG_APPWIDGET, new AppWidgetParser());
+//        parsers.put(TAG_SHORTCUT, new ShortcutParser(mSourceRes));
         return parsers;
     }
 
@@ -253,14 +262,14 @@ public class AutoInstallsLayout extends FavoritesParser {
                     return -1;
                 }
             } else {
-                return invalidPackageOrClass(parser);
+                return invalidPackageOrClass(parser, values);
             }
         }
 
         /**
          * Helper method to allow extending the parser capabilities
          */
-        protected long invalidPackageOrClass(XmlResourceParser parser) {
+        protected long invalidPackageOrClass(XmlResourceParser parser, Favorites values) {
             ZLog.w(LogTag.TAG_DOC, "跳过无效的 <favorite> : no component");
             return -1;
         }

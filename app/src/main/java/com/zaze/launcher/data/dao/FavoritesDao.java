@@ -18,15 +18,13 @@ import java.util.List;
 @Dao
 public interface FavoritesDao {
 
-
     /**
      * 不存在插入，存在则替换
      *
-     * @param favorites
-     * @return
+     * @param favorites favorites
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insertFavorites(Favorites favorites);
+    void insertOrReplaceFavorites(Favorites favorites);
 
     /**
      * 查询所有收藏

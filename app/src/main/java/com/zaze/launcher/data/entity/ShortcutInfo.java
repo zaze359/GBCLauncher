@@ -2,12 +2,16 @@ package com.zaze.launcher.data.entity;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.graphics.Bitmap;
 
 import com.zaze.launcher.LauncherSettings;
+import com.zaze.launcher.view.FolderIcon;
 import com.zaze.launcher.view.IconCache;
+import com.zaze.utils.log.ZLog;
+import com.zaze.utils.log.ZTag;
 
 /**
- * Description :
+ * Description : 工作区或者文件夹中可操作的图标
  *
  * @author : ZAZE
  * @version : 2018-01-16 - 14:09
@@ -27,19 +31,24 @@ public class ShortcutInfo extends ItemInfo {
      * be present along with {@link #FLAG_RESTORED_ICON}, and is set during default layout
      * parsing.
      * 添加为自动安装应用程序
+     * 0B10
      */
-    public static final int FLAG_AUTOINTALL_ICON = 2; //0B10;
+    public static final int FLAG_AUTOINTALL_ICON = 2;
 
     /**
-     * The icon is being installed. If {@link FLAG_RESTORED_ICON} or {@link FLAG_AUTOINTALL_ICON}
+     * The icon is being installed. If {@link #FLAG_RESTORED_ICON} or {@link #FLAG_AUTOINTALL_ICON}
      * is set, then the icon is either being installed or is in a broken state.
+     * <p>
+     * 0B100
      */
-    public static final int FLAG_INSTALL_SESSION_ACTIVE = 4; // 0B100;
+    public static final int FLAG_INSTALL_SESSION_ACTIVE = 4;
 
     /**
      * Indicates that the widget restore has started.
+     * <p>
+     * 0B1000
      */
-    public static final int FLAG_RESTORE_STARTED = 8; //0B1000;
+    public static final int FLAG_RESTORE_STARTED = 8;
 
     /**
      * Indicates if it represents a common type mentioned in {@link CommonAppTypeParser}.
@@ -78,12 +87,52 @@ public class ShortcutInfo extends ItemInfo {
     private int mInstallProgress;
 
     /**
-     * Indicates whether we're using a low res icon
+     * If isShortcut=true and customIcon=false, this contains a reference to the
+     * 作为应用程序资源的快捷图标
+     */
+    public Intent.ShortcutIconResource iconResource;
+
+    /**
+     * The application icon.
+     */
+    private Bitmap mIcon;
+
+    /**
+     * Indicates that the icon is disabled due to safe mode restrictions.
+     */
+    public static final int FLAG_DISABLED_SAFEMODE = 1;
+
+    /**
+     * Indicates that the icon is disabled as the app is not available.
+     */
+    public static final int FLAG_DISABLED_NOT_AVAILABLE = 2;
+
+    /**
+     * 表明图标是来自应用程序资源(if false)还是用户自定义Bitmap(if true.)
+     */
+    public boolean customIcon;
+
+    /**
+     * 指定我们是否使用默认的备用icon来替代应用icon
+     */
+    public boolean usingFallbackIcon;
+
+    /**
+     * 指定我们是否使用低分辨率的icon
      */
     public boolean usingLowResIcon;
 
+    /**
+     * TODO move this to {@link status}
+     */
+    public int flags = 0;
 
     // --------------------------------------------------
+
+    public ShortcutInfo() {
+        super();
+        itemType = LauncherSettings.ItemColumns.ITEM_TYPE_SHORTCUT;
+    }
 
     @Override
     public ItemInfo setValues(Favorites favorites) {
@@ -104,11 +153,39 @@ public class ShortcutInfo extends ItemInfo {
         status |= FLAG_INSTALL_SESSION_ACTIVE;
     }
 
+    // --------------------------------------------------
+    public void setIcon(Bitmap mIcon) {
+        this.mIcon = mIcon;
+    }
+
+    public Bitmap getIcon(IconCache iconCache) {
+        if (mIcon == null) {
+            updateIcon(iconCache);
+        }
+        return mIcon;
+    }
+
+    public void updateIcon(IconCache iconCache) {
+        updateIcon(iconCache, shouldUseLowResIcon());
+    }
 
     public void updateIcon(IconCache iconCache, boolean useLowRes) {
         if (itemType == LauncherSettings.ItemColumns.ITEM_TYPE_APPLICATION) {
             // TODO: 2018/3/2
+            ZLog.e(ZTag.TAG_DEBUG, "TODO : updateIcon()");
 //            iconCache.getTitleAndIcon(this, promisedIntent != null ? promisedIntent : intent, user, useLowRes);
         }
+    }
+
+    public boolean shouldUseLowResIcon() {
+        return usingLowResIcon && container >= 0 && rank >= FolderIcon.NUM_ITEMS_IN_PREVIEW;
+    }
+
+    public final boolean isPromise() {
+        return hasStatusFlag(FLAG_RESTORED_ICON | FLAG_AUTOINTALL_ICON);
+    }
+
+    public boolean hasStatusFlag(int flag) {
+        return (status & flag) != 0;
     }
 }

@@ -25,6 +25,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.PaintFlagsDrawFilter;
@@ -35,20 +36,31 @@ import android.graphics.drawable.PaintDrawable;
 import android.os.Build;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.res.ResourcesCompat;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.View;
 
 import com.zaze.launcher.LauncherAppState;
+import com.zaze.launcher.LauncherSettings;
+import com.zaze.launcher.data.entity.Favorites;
+import com.zaze.launcher.data.entity.ShortcutInfo;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Various utilities shared amongst the Launcher's classes.
  */
 public final class Utilities {
+
+
+    private static final Pattern sTrimPattern =
+            Pattern.compile("^[\\s|\\p{javaSpaceChar}]*(.*)[\\s|\\p{javaSpaceChar}]*$");
 
     private static final AtomicInteger sNextGeneratedId = new AtomicInteger(1);
 
@@ -79,6 +91,8 @@ public final class Utilities {
 
 
     // --------------------------------------------------
+    // --------------------------------------------------
+
     private static final Rect sOldBounds = new Rect();
     static int sColors[] = {0xffff0000, 0xff00ff00, 0xff0000ff};
     static int sColorIndex = 0;
@@ -99,6 +113,7 @@ public final class Utilities {
                 size, metrics));
     }
 
+    // --------------------------------------------------
     // --------------------------------------------------
 
     public static boolean checkUserPermission(Context context, String permission) {
@@ -167,30 +182,43 @@ public final class Utilities {
         return null;
     }
 
-
+    // --------------------------------------------------
     // --------------------------------------------------
 
-    private static int getIconBitmapSize(Context context) {
-        return LauncherAppState.getInstance(context).getInvariantDeviceProfile().iconBitmapSize;
+    private static int getIconBitmapSize() {
+        return LauncherAppState.getInstance().getInvariantDeviceProfile().iconBitmapSize;
+    }
+
+    public static Bitmap createIconBitmap(Context context, Favorites favorites) {
+        if (favorites.getIcon() != null) {
+            byte[] data = favorites.getIcon().getBytes();
+            try {
+                return createIconBitmap(context, BitmapFactory.decodeByteArray(data, 0, data.length));
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return null;
+
     }
 
     /**
      * Returns a bitmap which is of the appropriate size to be displayed as an icon
      */
-    public static Bitmap createIconBitmap(Bitmap icon, Context context) {
-        final int iconBitmapSize = getIconBitmapSize(context);
+    public static Bitmap createIconBitmap(Context context, Bitmap icon) {
+        final int iconBitmapSize = getIconBitmapSize();
         if (iconBitmapSize == icon.getWidth() && iconBitmapSize == icon.getHeight()) {
             return icon;
         }
-        return createIconBitmap(new BitmapDrawable(context.getResources(), icon), context);
+        return createIconBitmap(context, new BitmapDrawable(context.getResources(), icon));
     }
 
     /**
      * Returns a bitmap suitable for the all apps view.
      */
-    public static Bitmap createIconBitmap(Drawable icon, Context context) {
+    public static Bitmap createIconBitmap(Context context, Drawable icon) {
         synchronized (sCanvas) {
-            final int iconBitmapSize = getIconBitmapSize(context);
+            final int iconBitmapSize = getIconBitmapSize();
 
             int width = iconBitmapSize;
             int height = iconBitmapSize;
@@ -253,4 +281,80 @@ public final class Utilities {
             return bitmap;
         }
     }
+
+    /**
+     * Returns a bitmap suitable for the all apps view. If the package or the resource do not
+     * exist, it returns null.
+     */
+    public static Bitmap createIconBitmap(Context context, String packageName, String resourceName) {
+        PackageManager packageManager = context.getPackageManager();
+        try {
+            Resources resources = packageManager.getResourcesForApplication(packageName);
+            if (resources != null) {
+                final int id = resources.getIdentifier(resourceName, null, null);
+                return createIconBitmap(context, ResourcesCompat.getDrawableForDensity(
+                        resources, id, LauncherAppState.getInstance()
+                                .getInvariantDeviceProfile().fillResIconDpi, null));
+            }
+        } catch (Exception e) {
+            // Icon not found.
+        }
+        return null;
+    }
+
+
+    /**
+     * 从收藏信息中 加载图标
+     *
+     * @param context      context
+     * @param favorites    favorites
+     * @param shortcutInfo shortcutInfo
+     * @return
+     */
+    public static Bitmap loadIcon(Context context, Favorites favorites, ShortcutInfo shortcutInfo) {
+        Bitmap icon = null;
+        int iconType = favorites.getIconType();
+        switch (iconType) {
+            case LauncherSettings.ItemColumns.ICON_TYPE_RESOURCE:
+                String packageName = favorites.getIconPackage();
+                String resourceName = favorites.getIconResource();
+                if (!TextUtils.isEmpty(packageName) || !TextUtils.isEmpty(resourceName)) {
+                    shortcutInfo.iconResource = new Intent.ShortcutIconResource();
+                    shortcutInfo.iconResource.packageName = packageName;
+                    shortcutInfo.iconResource.resourceName = resourceName;
+                    icon = Utilities.createIconBitmap(context, packageName, resourceName);
+                }
+                if (icon == null) {
+                    // Failed to load from resource, try loading from DB.
+                    icon = Utilities.createIconBitmap(context, favorites);
+                }
+                break;
+            case LauncherSettings.ItemColumns.ICON_TYPE_BITMAP:
+                icon = Utilities.createIconBitmap(context, favorites);
+                shortcutInfo.customIcon = icon != null;
+                break;
+            default:
+                break;
+        }
+        return icon;
+    }
+
+    // --------------------------------------------------
+    // --------------------------------------------------
+
+    /**
+     * TODO ??? 这正则并不能去尾？
+     * 去除字符串开始和结束位置的空格
+     * Trims the string, removing all whitespace at the beginning and end of the string.
+     * Non-breaking whitespaces are also removed.
+     */
+    public static String trim(CharSequence s) {
+        if (s == null) {
+            return null;
+        }
+        // 只需从开始和结束处删除任何空格或java空格字符序列。
+        Matcher m = sTrimPattern.matcher(s);
+        return m.replaceAll("$1");
+    }
+
 }

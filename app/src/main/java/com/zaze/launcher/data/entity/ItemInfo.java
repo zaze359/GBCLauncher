@@ -1,5 +1,7 @@
 package com.zaze.launcher.data.entity;
 
+import com.zaze.launcher.compat.UserHandleCompat;
+
 /**
  * Description :
  *
@@ -20,16 +22,16 @@ public class ItemInfo {
     public long id = NO_ID;
 
     /**
-     * One of {@link LauncherSettings.Favorites#ITEM_TYPE_APPLICATION},
-     * {@link LauncherSettings.Favorites#ITEM_TYPE_SHORTCUT},
-     * {@link LauncherSettings.Favorites#ITEM_TYPE_FOLDER}, or
-     * {@link LauncherSettings.Favorites#ITEM_TYPE_APPWIDGET}.
+     * One of {@link com.zaze.launcher.LauncherSettings.ItemColumns#ITEM_TYPE_APPLICATION},
+     * {@link com.zaze.launcher.LauncherSettings.ItemColumns#ITEM_TYPE_SHORTCUT},
+     * {@link com.zaze.launcher.LauncherSettings.ItemColumns#ITEM_TYPE_FOLDER}, or
+     * {@link com.zaze.launcher.LauncherSettings.ItemColumns#ITEM_TYPE_APPWIDGET}.
      */
     public int itemType;
 
     /**
      * The id of the container that holds this item. For the desktop, this will be
-     * {@link LauncherSettings.Favorites#CONTAINER_DESKTOP}. For the all applications folder it
+     * {@link com.zaze.launcher.LauncherSettings.ItemColumns#CONTAINER_DESKTOP}. For the all applications folder it
      * will be {@link #NO_ID} (since it is not stored in the settings DB). For user folders
      * it will be the id of the folder.
      */
@@ -78,13 +80,18 @@ public class ItemInfo {
     /**
      * Title of the item
      */
-    public String title;
+    public CharSequence title;
 
     /**
      * Content description of the item.
      */
-    public String contentDescription;
+    public CharSequence contentDescription;
 
+    public UserHandleCompat user;
+
+    public ItemInfo() {
+        user = UserHandleCompat.myUserHandle();
+    }
 
     public ItemInfo setValues(Favorites favorites) {
         this.id = favorites.getId();

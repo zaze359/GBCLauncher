@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "77b10be037481852466c3695b8040fc4",
+    "identityHash": "e21306f1e0acf1ac5e9931b760d069d1",
     "entities": [
       {
         "tableName": "favorites",
@@ -128,11 +128,17 @@
       },
       {
         "tableName": "workspace_screen",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `screenRank` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
             "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "screenRank",
+            "columnName": "screenRank",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -149,7 +155,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"77b10be037481852466c3695b8040fc4\")"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, \"e21306f1e0acf1ac5e9931b760d069d1\")"
     ]
   }
 }

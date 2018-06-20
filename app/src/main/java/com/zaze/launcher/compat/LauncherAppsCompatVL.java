@@ -3,11 +3,14 @@ package com.zaze.launcher.compat;
 import android.annotation.TargetApi;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
 import android.os.Build;
 
 /**
- * Description :
+ * Description : LauncherApps LOLLIPOP
+ * `
  *
  * @author : ZAZE
  * @version : 2018-02-28 - 09:30
@@ -20,6 +23,16 @@ public class LauncherAppsCompatVL extends LauncherAppsCompat {
     LauncherAppsCompatVL(Context context) {
         super();
         mLauncherApps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+    }
+
+    @Override
+    public LauncherActivityInfoCompat resolveActivity(Intent intent, UserHandleCompat user) {
+        LauncherActivityInfo activity = mLauncherApps.resolveActivity(intent, user.getUser());
+        if (activity != null) {
+            return new LauncherActivityInfoCompatVL(activity);
+        } else {
+            return null;
+        }
     }
 
     @Override

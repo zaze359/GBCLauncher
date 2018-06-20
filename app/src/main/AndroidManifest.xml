@@ -4,6 +4,9 @@
 
     <!--<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />-->
 
+    <uses-permission android:name="android.permission.BROADCAST_STICKY"/>
+
+
     <application
         android:name=".LauncherApplication"
         android:allowBackup="true"
@@ -12,9 +15,23 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme">
+        <!--<activity-->=
+        <!--android:name=".LauncherActivity"-->
+        <!--android:screenOrientation="nosensor"-->
+        <!--android:windowSoftInputMode="adjustPan">-->
+
+        <!--<intent-filter>-->
+        <!--<action android:name="android.intent.action.MAIN" />-->
+
+        <!--<category android:name="android.intent.category.LAUNCHER" />-->
+        <!--<category android:name="android.intent.category.HOME" />-->
+        <!--<category android:name="android.intent.category.DEFAULT" />-->
+        <!--<category android:name="android.intent.category.MONKEY" />-->
+        <!--</intent-filter>-->
+        <!--</activity>-->
 
         <activity
-            android:name=".LauncherActivity"
+            android:name=".DebugActivity"
             android:screenOrientation="nosensor"
             android:windowSoftInputMode="adjustPan">
 
@@ -27,6 +44,26 @@
                 <category android:name="android.intent.category.MONKEY" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LauncherActivity"
+            android:screenOrientation="nosensor"
+            android:windowSoftInputMode="adjustPan">
+
+            <intent-filter>
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.MONKEY" />
+            </intent-filter>
+        </activity>
+
+
+        <receiver android:name=".StartupReceiver" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <uses-library android:name="android.test.runner" />
     </application>
 

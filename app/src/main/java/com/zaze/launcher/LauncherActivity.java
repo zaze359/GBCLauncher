@@ -37,7 +37,9 @@ import com.zaze.utils.log.ZLog;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author zaze
@@ -49,6 +51,9 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
     private LauncherCallbacks mLauncherCallbacks;
     private HotSeat mHotSeat;
     private Workspace mWorkspace;
+    private HashMap<Integer, Integer> mItemIdToViewId = new HashMap<>();
+    private static final AtomicInteger sNextGeneratedId = new AtomicInteger(1);
+
     private final ArrayList<Integer> mSynchronouslyBoundPages = new ArrayList<>();
     private LayoutInflater mInflater;
 
@@ -342,6 +347,7 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
 
     /**
      * Refreshes the shortcuts shown on the workspace.
+     * 刷新工作区的快捷图标
      */
     @Override
     public void startBinding() {
@@ -456,7 +462,46 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
     public void finishBindingItems() {
         ZLog.i(TAG, "finishBindingItems");
     }
+
     // ----------------------- about bind end   --------------------------
+
+
+    public HotSeat getHotSeat() {
+        return mHotSeat;
+    }
+
+    public int getViewIdForItem(ItemInfo info) {
+        // This cast is safe given the > 2B range for int.
+        int itemId = (int) info.id;
+        if (mItemIdToViewId.containsKey(itemId)) {
+            return mItemIdToViewId.get(itemId);
+        }
+        int viewId = generateViewId();
+        mItemIdToViewId.put(itemId, viewId);
+        return viewId;
+    }
+
+    public static int generateViewId() {
+        if (Utilities.ATLEAST_JB_MR1) {
+            return View.generateViewId();
+        } else {
+            // View.generateViewId() is not available. The following fallback logic is a copy
+            // of its implementation.
+            for (; ; ) {
+                final int result = sNextGeneratedId.get();
+                // aapt-generated IDs have the high byte nonzero; clamp to the range under that.
+                int newValue = result + 1;
+                if (newValue > 0x00FFFFFF) {
+                    // Roll over to 1, not 0.
+                    newValue = 1;
+                }
+                if (sNextGeneratedId.compareAndSet(result, newValue)) {
+                    return result;
+                }
+            }
+        }
+    }
+    // --------------------------------------------------
 
     /**
      * Creates a view representing a shortcut.
@@ -477,9 +522,9 @@ public class LauncherActivity extends AppCompatActivity implements LauncherContr
     public View createShortcut(ViewGroup parent, ShortcutInfo info) {
         BubbleTextView favorite = (BubbleTextView) mInflater.inflate(R.layout.app_icon_view,
                 parent, false);
-//        favorite.applyFromShortcutInfo(info, mIconCache);
+        favorite.applyFromShortcutInfo(info, LauncherAppState.getInstance().getIconCache());
         favorite.setCompoundDrawablePadding(
-                LauncherAppState.getInstance(this).getDeviceProfile().iconDrawablePaddingPx
+                LauncherAppState.getInstance().getDeviceProfile().iconDrawablePaddingPx
         );
         favorite.setOnClickListener(this);
 //        favorite.setOnFocusChangeListener(mFocusHandler);

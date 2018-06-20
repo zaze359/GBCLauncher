@@ -108,7 +108,7 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
     }
 
     public void measureChild(View child) {
-        final DeviceProfile profile = LauncherAppState.getInstance(getContext()).getDeviceProfile();
+        final DeviceProfile profile = LauncherAppState.getInstance().getDeviceProfile();
         final int cellWidth = mCellWidth;
         final int cellHeight = mCellHeight;
         CellLayout.LayoutParams layoutParams = (CellLayout.LayoutParams) child.getLayoutParams();
@@ -135,7 +135,7 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
     }
 
     int getCellContentHeight() {
-        final DeviceProfile profile = LauncherAppState.getInstance(getContext()).getDeviceProfile();
+        final DeviceProfile profile = LauncherAppState.getInstance().getDeviceProfile();
         return Math.min(getMeasuredHeight(), isHotSeatLayout ? profile.hotSeatCellHeightPx : profile.cellHeightPx);
     }
 
@@ -164,14 +164,16 @@ public class ShortcutAndWidgetContainer extends ViewGroup {
     }
 
     /**
-     * @return 是否从右到左布局 水平布局
+     * 是否反转水平布局(右到左布局)
+     *
+     * @return 右到左布局 = true
      */
     public boolean invertLayoutHorizontally() {
         return mInvertIfRtl && Utilities.isRtl(getResources());
     }
 
     /**
-     * 设置 从右到左布局 水平布局
+     * 设置是否反转水平布局 (从右到左布局）
      *
      * @param mInvertIfRtl mInvertIfRtl
      */

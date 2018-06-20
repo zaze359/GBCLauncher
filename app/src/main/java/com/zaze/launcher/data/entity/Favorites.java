@@ -23,7 +23,7 @@ public class Favorites {
 
     /**
      * The container holding the favorite
-     * 持有这个收藏的容器id
+     * 持有这个Favorite的容器id
      */
     private long container;
 
@@ -34,11 +34,13 @@ public class Favorites {
 
     /**
      * The X span of the cell holding the favorite
+     * 这个favorite在单元格中的X跨度
      */
     private int spanX;
 
     /**
      * The Y span of the cell holding the favorite
+     * 这个favorite在单元格中的Y跨度
      */
     private int spanY;
 

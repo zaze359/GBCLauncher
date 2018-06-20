@@ -6,17 +6,11 @@ import com.zaze.launcher.data.LauncherDatabase;
 import com.zaze.launcher.data.entity.Favorites;
 import com.zaze.launcher.data.source.iface.FavoritesDataSource;
 import com.zaze.launcher.data.source.local.FavoritesLocalDataSource;
-import com.zaze.launcher.data.source.remote.FavoritesRemoteDataSource;
 import com.zaze.launcher.util.LogTag;
 import com.zaze.utils.log.ZLog;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.functions.Function;
 
 /**
  * Description :
@@ -28,7 +22,6 @@ public class FavoritesRepository implements FavoritesDataSource {
     private static FavoritesRepository INSTANCE = null;
 
     private final FavoritesDataSource localDataSource;
-    private final FavoritesDataSource remoteDataSource;
 
     public static FavoritesRepository getInstance(Context context) {
         if (INSTANCE == null) {
@@ -42,13 +35,12 @@ public class FavoritesRepository implements FavoritesDataSource {
     }
 
     private FavoritesRepository(Context context) {
-        this.localDataSource = FavoritesLocalDataSource.getInstance(LauncherDatabase.getInstance(context).favritesDao());
-        this.remoteDataSource = FavoritesRemoteDataSource.getInstance();
+        this.localDataSource = new FavoritesLocalDataSource(LauncherDatabase.getInstance(context).favritesDao());
     }
 
     @Override
-    public void saveFavorites(Favorites favorites) {
-        localDataSource.saveFavorites(favorites);
+    public void insertOrReplaceFavorites(Favorites favorites) {
+        localDataSource.insertOrReplaceFavorites(favorites);
     }
 
     @Override
@@ -57,31 +49,9 @@ public class FavoritesRepository implements FavoritesDataSource {
     }
 
     @Override
-    public Observable<ArrayList<Long>> loadDefaultFavoritesIfNecessary() {
-        if (LauncherDatabase.isEmptyDatabaseCreate()) {
-            return localDataSource.loadDefaultFavoritesIfNecessary();
-        } else {
-            return Observable.create(new ObservableOnSubscribe<ArrayList<Long>>() {
-                @Override
-                public void subscribe(ObservableEmitter<ArrayList<Long>> e) throws Exception {
-                    e.onNext(new ArrayList<Long>());
-                    e.onComplete();
-                }
-            });
-        }
-
-    }
-
-    @Override
-    public Observable<List<Favorites>> loadFavorites() {
-        ZLog.d(LogTag.TAG_LOADER, "从数据库加载所有收藏");
-        return localDataSource.loadFavorites()
-                .map(new Function<List<Favorites>, List<Favorites>>() {
-                    @Override
-                    public List<Favorites> apply(List<Favorites> favorites) throws Exception {
-                        return favorites;
-                    }
-                });
+    public List<Favorites> loadFavorites() {
+        ZLog.i(LogTag.TAG_LOADER, "从数据库加载所有收藏");
+        return localDataSource.loadFavorites();
     }
 
     @Override

@@ -9,7 +9,7 @@ import android.content.pm.PackageManager;
 import com.zaze.launcher.util.Utilities;
 
 /**
- * Description :
+ * Description : launcher app 的一些 兼容处理
  *
  * @author : ZAZE
  * @version : 2018-02-28 - 09:30
@@ -33,6 +33,13 @@ public abstract class LauncherAppsCompat {
     }
 
 
+    /**
+     * 解析intent
+     *
+     * @param intent intent
+     * @param user   user
+     * @return LauncherActivityInfoCompat
+     */
     public abstract LauncherActivityInfoCompat resolveActivity(Intent intent, UserHandleCompat user);
 
 

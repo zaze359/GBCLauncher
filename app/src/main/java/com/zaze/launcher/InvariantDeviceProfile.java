@@ -89,6 +89,14 @@ public class InvariantDeviceProfile {
     float iconSize;
     float iconTextSize;
 
+    public int iconBitmapSize;
+
+    /**
+     * 填充的资源图标像素密度
+     */
+    public int fillResIconDpi;
+
+
     /**
      * Number of icons inside the hotseat area.
      */
@@ -100,11 +108,7 @@ public class InvariantDeviceProfile {
      */
     public int hotSeatAllAppsRank;
 
-    int defaultLayoutId;
-
-    public int iconBitmapSize;
-    int fillResIconDpi;
-
+    public int defaultLayoutId;
 
     InvariantDeviceProfile() {
     }
